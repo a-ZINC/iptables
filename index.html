@@ -1,0 +1,1858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>iptables & Linux Routing — Complete Interactive Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;700&family=DM+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#04080f;--bg2:#07111f;--panel:#0b1828;--panel2:#0f2035;
+  --border:#152338;--border2:#1e3354;
+  --green:#00e676;--green2:#00c853;--green3:#1b5e20;
+  --cyan:#18ffff;--cyan2:#00b8d4;
+  --amber:#ffab40;--amber2:#ff6d00;
+  --red:#ff5252;--blue:#448aff;--purple:#ea80fc;
+  --text:#c8d8f0;--dim:#5a7898;--bright:#eef6ff;
+  --mono:'JetBrains Mono',monospace;
+  --sans:'DM Sans',sans-serif;
+  --shadow:0 8px 32px rgba(0,0,0,.6);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:hidden;min-height:100vh}
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:
+    radial-gradient(ellipse 70% 50% at 15% 20%,rgba(24,255,255,.03) 0%,transparent 70%),
+    radial-gradient(ellipse 50% 40% at 85% 75%,rgba(0,230,118,.03) 0%,transparent 70%),
+    linear-gradient(rgba(21,35,56,.5) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(21,35,56,.5) 1px,transparent 1px);
+  background-size:auto,auto,28px 28px,28px 28px;
+}
+/* ─── LAYOUT ─── */
+.shell{display:flex;min-height:100vh;position:relative;z-index:1}
+/* ─── SIDEBAR ─── */
+.sidebar{
+  width:248px;flex-shrink:0;background:var(--bg2);
+  border-right:1px solid var(--border);position:fixed;
+  top:0;left:0;bottom:0;overflow-y:auto;z-index:100;
+  display:flex;flex-direction:column;
+  scrollbar-width:thin;scrollbar-color:var(--border2) transparent;
+}
+.sidebar::-webkit-scrollbar{width:4px}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px}
+.sb-logo{padding:20px 18px 16px;border-bottom:1px solid var(--border)}
+.sb-terminal{
+  font-family:var(--mono);font-size:.6rem;color:var(--green);
+  line-height:1.6;margin-bottom:10px;
+  background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.1);
+  border-radius:5px;padding:8px 10px;
+}
+.sb-terminal span{color:var(--cyan)}
+.sb-title{font-family:var(--mono);font-size:.82rem;color:var(--bright);font-weight:600}
+.sb-sub{font-size:.68rem;color:var(--dim);margin-top:2px}
+.sb-section{padding:6px 0}
+.sb-section-title{
+  font-family:var(--mono);font-size:.55rem;color:var(--dim);
+  text-transform:uppercase;letter-spacing:.15em;padding:10px 18px 5px;
+}
+.nav-item{
+  display:flex;align-items:center;gap:8px;padding:8px 18px;
+  font-size:.76rem;color:var(--dim);cursor:pointer;
+  border-left:2px solid transparent;transition:all .15s;
+  text-decoration:none;
+}
+.nav-item:hover{color:var(--text);background:rgba(255,255,255,.025)}
+.nav-item.active{color:var(--cyan);border-left-color:var(--cyan);background:rgba(24,255,255,.04)}
+.nav-item .ni-n{font-family:var(--mono);font-size:.58rem;width:18px;color:var(--dim);flex-shrink:0}
+.nav-item .ni-d{width:5px;height:5px;border-radius:50%;background:currentColor;flex-shrink:0;opacity:.7}
+.sb-footer{margin-top:auto;padding:14px 18px;border-top:1px solid var(--border)}
+.sb-footer p{font-family:var(--mono);font-size:.6rem;color:var(--dim);margin-bottom:6px}
+.prog-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;background:linear-gradient(90deg,var(--green),var(--cyan));border-radius:2px;width:0%;transition:width .4s ease}
+/* ─── MAIN ─── */
+.main{margin-left:248px;flex:1;min-height:100vh}
+/* ─── TOPBAR ─── */
+.topbar{
+  position:sticky;top:0;z-index:50;
+  background:rgba(4,8,15,.88);backdrop-filter:blur(16px);
+  border-bottom:1px solid var(--border);
+  padding:10px 36px;display:flex;align-items:center;justify-content:space-between;
+}
+.tb-path{font-family:var(--mono);font-size:.68rem;color:var(--dim)}
+.tb-path span{color:var(--cyan)}
+.tb-btns{display:flex;gap:6px}
+.tb-btn{
+  padding:4px 12px;border-radius:4px;border:1px solid var(--border);
+  background:transparent;color:var(--dim);font-family:var(--mono);font-size:.62rem;cursor:pointer;transition:all .15s;
+}
+.tb-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+/* ─── SECTIONS ─── */
+.sec{display:none;padding:36px;max-width:1180px;animation:fadein .25s ease}
+.sec.active{display:block}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+/* ─── HERO ─── */
+.hero{text-align:center;padding:32px 0 48px}
+.hero-pill{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:5px 14px;border-radius:20px;margin-bottom:20px;
+  border:1px solid rgba(0,230,118,.3);background:rgba(0,230,118,.06);
+  font-family:var(--mono);font-size:.65rem;color:var(--green);
+}
+.hero-pill::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 1.6s infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.8)}}
+.hero h1{
+  font-size:clamp(1.9rem,4.5vw,3rem);font-weight:800;color:var(--bright);
+  line-height:1.15;margin-bottom:14px;letter-spacing:-.02em;
+}
+.hero h1 em{color:var(--cyan);font-style:normal}
+.hero h1 strong{color:var(--green)}
+.hero .lead{font-size:.95rem;color:var(--dim);max-width:580px;margin:0 auto 28px;line-height:1.85}
+.hero-stats{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;margin-bottom:36px}
+.hstat{padding:14px 22px;background:var(--panel);border:1px solid var(--border);border-radius:10px;text-align:center}
+.hstat .n{font-family:var(--mono);font-size:1.5rem;color:var(--cyan);display:block;font-weight:700}
+.hstat .l{font-size:.68rem;color:var(--dim);display:block;margin-top:2px}
+.hero-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;max-width:780px;margin:0 auto}
+.hcard{padding:18px;background:var(--panel);border:1px solid var(--border);border-radius:10px;cursor:pointer;transition:all .2s;text-align:left}
+.hcard:hover{border-color:var(--cyan);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.hcard .hi{font-size:1.4rem;display:block;margin-bottom:8px}
+.hcard h4{font-size:.86rem;font-weight:700;color:var(--bright);margin-bottom:4px}
+.hcard p{font-size:.71rem;color:var(--dim);line-height:1.55}
+.hcard .ht{display:inline-block;margin-top:8px;padding:2px 8px;border-radius:3px;font-family:var(--mono);font-size:.58rem;font-weight:600}
+.t-easy{background:rgba(0,230,118,.1);color:var(--green);border:1px solid rgba(0,230,118,.25)}
+.t-med{background:rgba(255,171,64,.1);color:var(--amber);border:1px solid rgba(255,171,64,.25)}
+.t-hard{background:rgba(255,82,82,.1);color:var(--red);border:1px solid rgba(255,82,82,.25)}
+.t-neutral{background:rgba(90,120,152,.1);color:var(--dim);border:1px solid var(--border)}
+/* ─── SEC HEADER ─── */
+.sec-hd{display:flex;align-items:center;gap:14px;margin-bottom:28px;padding-bottom:14px;border-bottom:1px solid var(--border)}
+.sec-ic{width:46px;height:46px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
+.sec-hd h2{font-size:1.4rem;font-weight:700;color:var(--bright)}
+.sec-hd p{font-size:.78rem;color:var(--dim);margin-top:2px}
+/* ─── GRIDS & CARDS ─── */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:24px}
+@media(max-width:920px){.g3{grid-template-columns:1fr 1fr}}
+@media(max-width:680px){.g3,.g2{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:18px;position:relative;overflow:hidden}
+.card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.c-green::after{background:var(--green)}.c-cyan::after{background:var(--cyan)}
+.c-amber::after{background:var(--amber)}.c-blue::after{background:var(--blue)}
+.c-purple::after{background:var(--purple)}.c-red::after{background:var(--red)}
+.card h3{font-size:.9rem;font-weight:700;color:var(--bright);margin-bottom:9px;display:flex;align-items:center;gap:7px}
+.card p{font-size:.79rem;line-height:1.75;color:var(--text)}
+.card p+p{margin-top:7px}
+/* ─── ANALOGY ─── */
+.analogy{
+  background:rgba(24,255,255,.04);border:1px solid rgba(24,255,255,.12);
+  border-left:3px solid var(--cyan);border-radius:0 8px 8px 0;
+  padding:14px 18px;margin:16px 0;
+}
+.analogy .al{font-family:var(--mono);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;color:var(--cyan);margin-bottom:7px}
+.analogy p{font-size:.8rem;line-height:1.8;color:var(--text)}
+.analogy p+p{margin-top:7px}
+/* ─── INFO BOXES ─── */
+.ib{border-radius:7px;padding:12px 16px;margin:12px 0;font-size:.79rem;line-height:1.7}
+.ib-warn{background:rgba(255,171,64,.06);border:1px solid rgba(255,171,64,.2);border-left:3px solid var(--amber)}
+.ib-tip{background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.18);border-left:3px solid var(--green)}
+.ib-danger{background:rgba(255,82,82,.05);border:1px solid rgba(255,82,82,.18);border-left:3px solid var(--red)}
+.ib-info{background:rgba(24,255,255,.04);border:1px solid rgba(24,255,255,.12);border-left:3px solid var(--cyan)}
+.ib .il{font-family:var(--mono);font-size:.58rem;text-transform:uppercase;letter-spacing:.1em;margin-bottom:5px}
+.ib-warn .il{color:var(--amber)}.ib-tip .il{color:var(--green)}.ib-danger .il{color:var(--red)}.ib-info .il{color:var(--cyan)}
+/* ─── CODE BLOCKS ─── */
+.cb{background:#020508;border:1px solid var(--border);border-radius:8px;padding:14px 18px;margin:10px 0;position:relative}
+.cb-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.cb-lbl{font-family:var(--mono);font-size:.58rem;color:var(--dim);text-transform:uppercase;letter-spacing:.07em}
+.copy-btn{
+  background:transparent;border:1px solid var(--border);color:var(--dim);
+  padding:2px 7px;border-radius:3px;font-family:var(--mono);font-size:.55rem;cursor:pointer;transition:all .15s;
+}
+.copy-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.copy-btn.copied{border-color:var(--green);color:var(--green)}
+.cb pre{font-family:var(--mono);font-size:.72rem;line-height:1.85;color:var(--green);white-space:pre-wrap;word-break:break-all}
+.cb pre .c{color:var(--dim)}.cb pre .k{color:var(--cyan)}.cb pre .o{color:var(--amber)}.cb pre .hi{color:var(--green);font-weight:700}.cb pre .e{color:var(--red)}
+/* ─── FLOW VISUAL ─── */
+.flow-vis{background:var(--panel);border:1px solid var(--border);border-radius:11px;padding:22px;margin:16px 0;overflow-x:auto}
+.flow-vis h4{font-family:var(--mono);font-size:.62rem;color:var(--cyan);text-transform:uppercase;letter-spacing:.08em;margin-bottom:16px}
+.frow{display:flex;align-items:center;gap:0;flex-wrap:nowrap;min-width:min-content;margin-bottom:6px}
+.fn{
+  padding:7px 11px;border-radius:6px;border:1px solid;font-family:var(--mono);
+  font-size:.63rem;font-weight:600;white-space:nowrap;cursor:pointer;transition:all .15s;flex-shrink:0;
+}
+.fn:hover{filter:brightness(1.25);transform:scale(1.04)}
+.fn-r{background:rgba(0,230,118,.08);border-color:var(--green);color:var(--green)}
+.fn-m{background:rgba(234,128,252,.08);border-color:var(--purple);color:var(--purple)}
+.fn-n{background:rgba(255,171,64,.08);border-color:var(--amber);color:var(--amber)}
+.fn-f{background:rgba(68,138,255,.08);border-color:var(--blue);color:var(--blue)}
+.fn-rt{background:rgba(24,255,255,.08);border-color:var(--cyan);color:var(--cyan)}
+.fn-ep{background:rgba(90,120,152,.07);border-color:var(--border2);color:var(--dim)}
+.fn-lc{background:rgba(0,230,118,.05);border-color:#0d3d1e;color:#4caf50}
+.fa{width:24px;height:1.5px;background:var(--border2);position:relative;flex-shrink:0}
+.fa::after{
+  content:'';position:absolute;right:-4px;top:50%;transform:translateY(-50%);
+  border-top:3px solid transparent;border-bottom:3px solid transparent;border-left:5px solid var(--border2);
+}
+.fl{font-family:var(--mono);font-size:.57rem;padding:0 6px;color:var(--dim);white-space:nowrap;flex-shrink:0}
+.fl-g{color:var(--green)}.fl-a{color:var(--amber)}.fl-r{color:var(--red)}.fl-c{color:var(--cyan)}
+/* ─── TABLE MATRIX ─── */
+.tm{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.69rem;margin:12px 0}
+.tm th{background:var(--panel2);color:var(--cyan);padding:9px 12px;text-align:left;border:1px solid var(--border);font-weight:600}
+.tm td{padding:8px 12px;border:1px solid var(--border);color:var(--dim);background:var(--panel)}
+.tm tr:hover td{background:var(--panel2)}
+.tm-y{color:var(--green);font-weight:700}.tm-n{color:var(--border2)}.tm-ch{color:var(--bright);font-weight:600}
+/* ─── CONCEPT STRIP ─── */
+.cs{display:flex;gap:0;border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:14px 0}
+.csi{flex:1;padding:14px 12px;text-align:center;border-right:1px solid var(--border);background:var(--panel);transition:background .15s;cursor:default}
+.csi:last-child{border-right:none}
+.csi:hover{background:var(--panel2)}
+.csi .icon{font-size:1.3rem;display:block;margin-bottom:6px}
+.csi h5{font-family:var(--mono);font-size:.66rem;font-weight:700;color:var(--bright);margin-bottom:3px}
+.csi p{font-size:.67rem;color:var(--dim);line-height:1.45}
+/* ─── ROUTING TABLE VISUAL ─── */
+.rtv{background:var(--panel);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin:14px 0}
+.rtv-hd{padding:10px 18px;background:var(--panel2);border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.65rem;color:var(--cyan);display:flex;justify-content:space-between}
+.rtv-row{display:grid;grid-template-columns:1.4fr 1.2fr 1fr .6fr;padding:9px 18px;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.69rem;transition:background .1s}
+.rtv-row:last-child{border-bottom:none}
+.rtv-row:hover{background:var(--panel2)}
+.rtv-row.def{color:var(--amber)}
+.r-dest{color:var(--bright)}.r-gw{color:var(--cyan)}.r-dev{color:var(--green)}.r-m{color:var(--dim)}
+/* ─── DIVIDER ─── */
+.divider{display:flex;align-items:center;gap:10px;margin:22px 0 16px}
+.divider span{font-family:var(--mono);font-size:.6rem;color:var(--dim);white-space:nowrap}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+/* ─── PROJECTS ─── */
+.proj-card{background:var(--panel);border:1px solid var(--border);border-radius:13px;overflow:hidden;margin-bottom:24px;transition:border-color .2s}
+.proj-card:hover{border-color:var(--cyan)}
+.proj-hd{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.ph-left{flex:1}
+.ph-num{font-family:var(--mono);font-size:.58rem;color:var(--dim);margin-bottom:3px}
+.ph-title{font-size:1rem;font-weight:700;color:var(--bright);margin-bottom:4px}
+.ph-desc{font-size:.77rem;color:var(--dim);line-height:1.6}
+.ph-tags{display:flex;gap:6px;margin-top:9px;flex-wrap:wrap}
+.done-btn{
+  padding:7px 16px;background:transparent;border:1px solid var(--border);border-radius:6px;
+  color:var(--dim);font-family:var(--mono);font-size:.64rem;cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0;
+}
+.done-btn:hover{border-color:var(--green);color:var(--green)}
+.done-btn.done{background:rgba(0,230,118,.08);border-color:var(--green);color:var(--green)}
+.proj-body{display:grid;grid-template-columns:1fr 1fr;gap:0}
+@media(max-width:820px){.proj-body{grid-template-columns:1fr}}
+.pb-col{padding:18px 22px}
+.pb-col+.pb-col{border-left:1px solid var(--border)}
+.pb-col h4{font-family:var(--mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.1em;color:var(--dim);margin-bottom:12px}
+.steps{display:flex;flex-direction:column;gap:10px}
+.step{display:flex;gap:10px}
+.st-n{
+  width:22px;height:22px;border-radius:50%;flex-shrink:0;
+  background:rgba(24,255,255,.1);border:1px solid rgba(24,255,255,.25);
+  color:var(--cyan);font-family:var(--mono);font-size:.58rem;font-weight:700;
+  display:flex;align-items:center;justify-content:center;margin-top:1px;
+}
+.st-body p{font-size:.75rem;line-height:1.6;color:var(--text);margin-bottom:5px}
+.cmd-line{
+  display:block;background:#020508;border:1px solid var(--border);border-radius:5px;
+  padding:5px 10px;font-family:var(--mono);font-size:.69rem;color:var(--cyan);
+  cursor:pointer;transition:all .15s;position:relative;margin-bottom:3px;word-break:break-all;
+}
+.cmd-line:hover{border-color:var(--cyan);background:rgba(24,255,255,.03)}
+.cmd-line.copied{border-color:var(--green);color:var(--green)}
+.cmd-note{font-family:var(--mono);font-size:.62rem;color:var(--dim);padding-left:3px;display:block}
+.learn-items{display:flex;flex-direction:column;gap:7px}
+.li-item{display:flex;gap:7px;align-items:flex-start;font-size:.75rem;color:var(--text);line-height:1.6}
+.li-item::before{content:'→';color:var(--cyan);font-family:var(--mono);font-size:.65rem;flex-shrink:0;margin-top:2px}
+.vfy-block{background:rgba(0,230,118,.05);border:1px solid rgba(0,230,118,.13);border-radius:7px;padding:11px 14px;margin-top:10px}
+.vfy-lbl{font-family:var(--mono);font-size:.57rem;color:var(--green);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px}
+.vfy-cmd{font-family:var(--mono);font-size:.69rem;color:var(--green);display:block;line-height:1.85;cursor:pointer;transition:color .1s}
+.vfy-cmd:hover{color:var(--cyan)}
+/* ─── PROGRESS TRACKER ─── */
+.tracker{
+  display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:14px 18px;background:var(--panel);border:1px solid var(--border);
+  border-radius:10px;margin-bottom:22px;
+}
+.tr-lbl{font-family:var(--mono);font-size:.62rem;color:var(--dim)}
+.tr-dot{width:11px;height:11px;border-radius:50%;border:2px solid var(--border2);background:transparent;transition:all .2s;cursor:pointer}
+.tr-dot.done{background:var(--green);border-color:var(--green);box-shadow:0 0 7px var(--green2)}
+.tr-score{margin-left:auto;font-family:var(--mono);font-size:.69rem;color:var(--green)}
+/* ─── CHEATSHEET ─── */
+.cs-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:680px){.cs-grid{grid-template-columns:1fr}}
+.cs-card{background:var(--panel);border:1px solid var(--border);border-radius:9px;overflow:hidden}
+.cs-hd{padding:9px 15px;background:var(--panel2);border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.62rem;color:var(--cyan);text-transform:uppercase;letter-spacing:.07em}
+.cs-body{padding:11px 15px}
+.cs-row{display:flex;gap:9px;align-items:flex-start;margin-bottom:6px}
+.cs-cmd{font-family:var(--mono);font-size:.62rem;color:var(--green);background:rgba(0,230,118,.07);padding:1px 6px;border-radius:3px;white-space:nowrap;flex-shrink:0}
+.cs-desc{font-size:.7rem;color:var(--dim);line-height:1.5}
+/* ─── ROUTING PATH VISUAL ─── */
+.rpath{display:flex;align-items:center;gap:0;padding:18px 0;overflow-x:auto}
+.rp-nd{display:flex;flex-direction:column;align-items:center;gap:5px;flex-shrink:0}
+.rp-bx{padding:9px 12px;border-radius:7px;border:1px solid;font-family:var(--mono);font-size:.64rem;font-weight:600;text-align:center;min-width:80px}
+.rp-lb{font-family:var(--mono);font-size:.55rem;color:var(--dim);text-align:center;max-width:88px;line-height:1.35}
+.rp-ar{display:flex;flex-direction:column;align-items:center;padding:0 3px;flex-shrink:0;gap:2px}
+.rp-ln{width:28px;height:1.5px;background:var(--border2)}
+.rp-ah{width:0;height:0;border-top:3px solid transparent;border-bottom:3px solid transparent;border-left:5px solid var(--border2)}
+.rp-nt{font-family:var(--mono);font-size:.52rem;color:var(--dim);white-space:nowrap}
+/* ─── PACKET ANIMATION ─── */
+@keyframes travel{from{left:-10px;opacity:0}to{left:calc(100% + 10px);opacity:0}}
+@keyframes show{0%{opacity:0}10%,90%{opacity:1}100%{opacity:0}}
+/* ─── SCROLLBAR ─── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+/* ─── MOBILE ─── */
+@media(max-width:768px){
+  .sidebar{transform:translateX(-248px);transition:transform .25s}
+  .sidebar.open{transform:translateX(0)}
+  .main{margin-left:0}
+  .hero-cards{grid-template-columns:1fr}
+  .cs{flex-direction:column}
+}
+.mob-btn{display:none;position:fixed;top:10px;left:10px;z-index:200;padding:7px 10px;background:var(--panel);border:1px solid var(--border);border-radius:6px;cursor:pointer;font-size:.9rem;color:var(--text)}
+@media(max-width:768px){.mob-btn{display:block}}
+</style>
+</head>
+<body>
+<button class="mob-btn" onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+<div class="shell">
+
+<!-- ══ SIDEBAR ══ -->
+<div class="sidebar" id="sidebar">
+  <div class="sb-logo">
+    <div class="sb-terminal">$ sudo iptables -L<br><span>Chain INPUT (policy DROP)</span><br>target  prot  source  destination</div>
+    <div class="sb-title">NetKernel Guide</div>
+    <div class="sb-sub">iptables &amp; Routing — Complete</div>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-section-title">Overview</div>
+    <a class="nav-item active" onclick="nav('intro',this)"><span class="ni-n">00</span><div class="ni-d"></div>Home &amp; Overview</a>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-section-title">iptables</div>
+    <a class="nav-item" onclick="nav('ipt-basics',this)"><span class="ni-n">01</span><div class="ni-d"></div>Core Concepts</a>
+    <a class="nav-item" onclick="nav('ipt-tables',this)"><span class="ni-n">02</span><div class="ni-d"></div>The 4 Tables</a>
+    <a class="nav-item" onclick="nav('ipt-chains',this)"><span class="ni-n">03</span><div class="ni-d"></div>The 5 Chains</a>
+    <a class="nav-item" onclick="nav('ipt-flow',this)"><span class="ni-n">04</span><div class="ni-d"></div>Packet Flow Paths</a>
+    <a class="nav-item" onclick="nav('ipt-nat',this)"><span class="ni-n">05</span><div class="ni-d"></div>NAT Deep Dive</a>
+    <a class="nav-item" onclick="nav('ipt-conntrack',this)"><span class="ni-n">06</span><div class="ni-d"></div>Connection Tracking</a>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-section-title">Routing</div>
+    <a class="nav-item" onclick="nav('rt-basics',this)"><span class="ni-n">07</span><div class="ni-d"></div>Routing Fundamentals</a>
+    <a class="nav-item" onclick="nav('rt-table',this)"><span class="ni-n">08</span><div class="ni-d"></div>Routing Table &amp; LPM</a>
+    <a class="nav-item" onclick="nav('rt-pbr',this)"><span class="ni-n">09</span><div class="ni-d"></div>Policy-Based Routing</a>
+    <a class="nav-item" onclick="nav('rt-ipt',this)"><span class="ni-n">10</span><div class="ni-d"></div>Routing + iptables</a>
+  </div>
+
+  <div class="sb-section">
+    <div class="sb-section-title">Practical Projects</div>
+    <a class="nav-item" onclick="nav('proj-setup',this)"><span class="ni-n">11</span><div class="ni-d"></div>Lab Setup</a>
+    <a class="nav-item" onclick="nav('proj-1',this)"><span class="ni-n">P1</span><div class="ni-d"></div>Stateful Firewall</a>
+    <a class="nav-item" onclick="nav('proj-2',this)"><span class="ni-n">P2</span><div class="ni-d"></div>NAT Gateway</a>
+    <a class="nav-item" onclick="nav('proj-3',this)"><span class="ni-n">P3</span><div class="ni-d"></div>Port Forwarding</a>
+    <a class="nav-item" onclick="nav('proj-4',this)"><span class="ni-n">P4</span><div class="ni-d"></div>Rate Limiting</a>
+    <a class="nav-item" onclick="nav('proj-5',this)"><span class="ni-n">P5</span><div class="ni-d"></div>Dual-ISP Routing</a>
+    <a class="nav-item" onclick="nav('proj-6',this)"><span class="ni-n">P6</span><div class="ni-d"></div>VPN Gateway</a>
+    <a class="nav-item" onclick="nav('cheat',this)"><span class="ni-n">CS</span><div class="ni-d"></div>Cheat Sheet</a>
+  </div>
+
+  <div class="sb-footer">
+    <p>Progress: <span id="prog-txt">0 / 6 projects</span></p>
+    <div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+  </div>
+</div>
+
+<!-- ══ MAIN ══ -->
+<div class="main">
+  <div class="topbar">
+    <div class="tb-path">~ / <span id="tb-path">overview</span></div>
+    <div class="tb-btns">
+      <button class="tb-btn" onclick="prevSec()">← prev</button>
+      <button class="tb-btn" onclick="nextSec()">next →</button>
+    </div>
+  </div>
+
+<!-- ══════ INTRO ══════ -->
+<div class="sec active" id="sec-intro">
+  <div class="hero">
+    <div class="hero-pill">Interactive Learning Guide — iptables &amp; Linux Routing</div>
+    <h1>Master <em>iptables</em> &amp;<br><strong>Linux Routing</strong></h1>
+    <p class="lead">From "what is a packet" to building production firewalls, NAT gateways, and policy-based routing — with 6 hands-on projects that build real confidence.</p>
+    <div class="hero-stats">
+      <div class="hstat"><span class="n">4</span><span class="l">Tables</span></div>
+      <div class="hstat"><span class="n">5</span><span class="l">Chains</span></div>
+      <div class="hstat"><span class="n">3</span><span class="l">Packet Paths</span></div>
+      <div class="hstat"><span class="n">6</span><span class="l">Projects</span></div>
+    </div>
+    <div class="hero-cards">
+      <div class="hcard" onclick="nav('ipt-basics',null)">
+        <span class="hi">🔥</span><h4>iptables Deep Dive</h4>
+        <p>Tables, chains, rules, NAT, conntrack — understand how every packet is controlled.</p>
+        <span class="ht t-easy">Start here if new</span>
+      </div>
+      <div class="hcard" onclick="nav('rt-basics',null)">
+        <span class="hi">🗺️</span><h4>Linux Routing</h4>
+        <p>Routing tables, LPM, policy routing, ARP, multi-homing, VPNs.</p>
+        <span class="ht t-med">Intermediate</span>
+      </div>
+      <div class="hcard" onclick="nav('proj-setup',null)">
+        <span class="hi">⚗️</span><h4>6 Projects</h4>
+        <p>Firewall, NAT gateway, port forwarding, rate limiting, dual-ISP, VPN gateway.</p>
+        <span class="ht t-hard">Hands-on</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"><span>the building analogy — remember this throughout</span></div>
+
+  <div class="analogy">
+    <div class="al">💡 Core mental model</div>
+    <p><strong>Your Linux machine is a building. Every packet is a person visiting.</strong> The building has three main corridors: one for visitors arriving <em style="color:var(--cyan)">at</em> your building (INPUT), one for visitors you send <em style="color:var(--green)">out</em> (OUTPUT), and one for visitors just <em style="color:var(--amber)">passing through</em> to reach somewhere else (FORWARD).</p>
+    <p>Along each corridor are checkpoints (tables) with guards following your rulebook (rules). Guards can: let you through (ACCEPT), throw you out silently (DROP), send you back with a message (REJECT), change your destination sticker (DNAT), or change your name badge (SNAT).</p>
+  </div>
+
+  <div class="g3">
+    <div class="card c-cyan">
+      <h3>📦 What is a Packet?</h3>
+      <p>Every network message is broken into packets. Each has a <strong style="color:var(--cyan)">header</strong> (src IP, dst IP, ports, protocol, TTL) and a <strong style="color:var(--green)">payload</strong> (the actual data). iptables only reads headers — it never inspects payloads.</p>
+    </div>
+    <div class="card c-green">
+      <h3>🔗 What is a Chain?</h3>
+      <p>A chain is a list of rules checked top-to-bottom. The <strong>first matching rule wins</strong>. If no rule matches, the chain's default policy applies (ACCEPT or DROP). There are 5 built-in chains, each at a different point in the packet's journey.</p>
+    </div>
+    <div class="card c-amber">
+      <h3>📋 What is a Table?</h3>
+      <p>Tables group rules by purpose. <strong style="color:var(--green)">raw</strong> = pre-screening, <strong style="color:var(--purple)">mangle</strong> = modifying headers, <strong style="color:var(--amber)">nat</strong> = translating addresses, <strong style="color:var(--blue)">filter</strong> = allowing or blocking. Tables run in a fixed order: raw → mangle → nat → filter.</p>
+    </div>
+  </div>
+</div>
+<!-- ══════ IPT BASICS ══════ -->
+<div class="sec" id="sec-ipt-basics">
+  <div class="sec-hd">
+    <div class="sec-ic" style="background:rgba(24,255,255,.1)">⚡</div>
+    <div><h2>iptables Core Concepts</h2><p>The building blocks — tables, chains, rules, and targets</p></div>
+  </div>
+
+  <div class="cs">
+    <div class="csi"><span class="icon">📦</span><h5>Packet</h5><p>Header + payload. iptables reads headers.</p></div>
+    <div class="csi"><span class="icon">🔗</span><h5>Chain</h5><p>Ordered list of rules. First match wins.</p></div>
+    <div class="csi"><span class="icon">📋</span><h5>Table</h5><p>Groups rules by purpose. 4 tables.</p></div>
+    <div class="csi"><span class="icon">⚖️</span><h5>Rule</h5><p>Match conditions + action (target).</p></div>
+    <div class="csi"><span class="icon">🎯</span><h5>Target</h5><p>What to do when rule matches.</p></div>
+    <div class="csi"><span class="icon">📜</span><h5>Policy</h5><p>Default if no rule matches.</p></div>
+  </div>
+
+  <div class="divider"><span>rule anatomy</span></div>
+  <div class="g2">
+    <div class="card c-cyan">
+      <h3>⚖️ Anatomy of a Rule</h3>
+      <p>Every iptables rule = <strong>match conditions</strong> + <strong>action (target)</strong>. Conditions can match on protocol, ports, IPs, interfaces, connection state, and more.</p>
+      <div class="cb" style="margin-top:10px">
+        <div class="cb-hd"><span class="cb-lbl">rule structure</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+        <pre><span class="c"># iptables [table] [command] [chain] [match] -j [target]</span>
+<span class="k">iptables</span> -t filter -A INPUT   <span class="c"># append to INPUT chain</span>
+         -p tcp               <span class="c"># match: TCP protocol</span>
+         --dport 22           <span class="c"># match: destination port 22</span>
+         -s 10.0.0.5          <span class="c"># match: source IP</span>
+         -j ACCEPT            <span class="c"># action: accept it</span>
+
+<span class="c"># -t filter is the default — this is equivalent:</span>
+<span class="k">iptables</span> -A INPUT -p tcp --dport 22 -s 10.0.0.5 -j ACCEPT</pre>
+      </div>
+      <p style="margin-top:8px">Rules are checked <strong style="color:var(--amber)">top to bottom</strong>. The first matching rule wins. If no rule matches → <strong>default policy</strong> (ACCEPT or DROP).</p>
+    </div>
+    <div class="card c-green">
+      <h3>🛠️ Managing Rules</h3>
+      <div class="cb">
+        <div class="cb-hd"><span class="cb-lbl">commands</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+        <pre><span class="c"># View rules with counters and line numbers</span>
+<span class="k">iptables -L -n -v --line-numbers</span>
+
+<span class="c"># Append rule to end of chain</span>
+<span class="k">iptables -A INPUT -p tcp --dport 80 -j ACCEPT</span>
+
+<span class="c"># Insert rule at position 1 (top)</span>
+<span class="k">iptables -I INPUT 1 -p tcp --dport 80 -j ACCEPT</span>
+
+<span class="c"># Delete rule by line number</span>
+<span class="k">iptables -D INPUT 3</span>
+
+<span class="c"># Flush (delete) all rules</span>
+<span class="k">iptables -F</span>
+
+<span class="c"># Set default policy</span>
+<span class="k">iptables -P INPUT DROP</span>
+
+<span class="c"># Save rules (persist after reboot)</span>
+<span class="k">iptables-save > /etc/iptables/rules.v4</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"><span>targets — what to do when a rule matches</span></div>
+  <div class="g3">
+    <div class="card c-green">
+      <h3>✅ ACCEPT</h3>
+      <p>Let the packet through. Processing stops — no more rules checked in this chain.</p>
+      <div class="cb" style="margin-top:9px"><pre><span class="k">-j ACCEPT</span></pre></div>
+    </div>
+    <div class="card c-red">
+      <h3>🚫 DROP</h3>
+      <p>Silently discard. Sender gets <strong>no response</strong> — connection times out (~30s). Best for public services; attackers can't confirm the host exists.</p>
+      <div class="cb" style="margin-top:9px"><pre><span class="k">-j DROP</span></pre></div>
+    </div>
+    <div class="card c-amber">
+      <h3>⛔ REJECT</h3>
+      <p>Discard + send ICMP unreachable back. Sender fails <strong>immediately</strong>. Better for internal networks where fast feedback matters.</p>
+      <div class="cb" style="margin-top:9px"><pre><span class="k">-j REJECT
+-j REJECT --reject-with tcp-reset</span></pre></div>
+    </div>
+    <div class="card c-blue">
+      <h3>📝 LOG</h3>
+      <p><strong>Non-terminating</strong> — writes to syslog then continues to next rule. Always add LOG before DROP to see what you're blocking.</p>
+      <div class="cb" style="margin-top:9px"><pre><span class="k">-j LOG --log-prefix "BLOCKED: "</span>
+<span class="c"># Read: tail -f /var/log/syslog | grep BLOCKED</span></pre></div>
+    </div>
+    <div class="card c-purple">
+      <h3>🏷️ MARK</h3>
+      <p>Tag packet with a number — kernel-internal only (not visible on wire). Policy routing (ip rule) and tc can read this tag and act on it.</p>
+      <div class="cb" style="margin-top:9px"><pre><span class="k">-j MARK --set-mark 1</span></pre></div>
+    </div>
+    <div class="card c-cyan">
+      <h3>🚦 NOTRACK</h3>
+      <p>Skip connection tracking for this packet (raw table only). Saves memory for high-volume flows like DNS where you don't need stateful rules.</p>
+      <div class="cb" style="margin-top:9px"><pre><span class="k">-t raw ... -j NOTRACK</span></pre></div>
+    </div>
+  </div>
+
+  <div class="ib ib-warn">
+    <div class="il">⚠️ DROP vs REJECT</div>
+    <strong>DROP</strong>: silent discard, port scanners see "filtered", sender waits ~30s to timeout. Use for public-facing services. &nbsp;|&nbsp; <strong>REJECT</strong>: sends ICMP back, sender fails immediately, port scanners see "closed". Use inside trusted networks where fast failure is helpful.
+  </div>
+</div>
+
+<!-- ══════ IPT TABLES ══════ -->
+<div class="sec" id="sec-ipt-tables">
+  <div class="sec-hd">
+    <div class="sec-ic" style="background:rgba(0,230,118,.1)">📋</div>
+    <div><h2>The 4 Tables</h2><p>Each table has exactly one job — and they run in a fixed order</p></div>
+  </div>
+
+  <div class="analogy">
+    <div class="al">💡 Tables = specialist departments</div>
+    <p><strong>raw</strong> = pre-screener (earliest intercept, before conntrack), <strong>mangle</strong> = packet editor (modify headers, set marks), <strong>nat</strong> = address translator (DNAT/SNAT), <strong>filter</strong> = gatekeeper (ACCEPT/DROP). The order is always <strong style="color:var(--cyan)">raw → mangle → nat → filter</strong> — hardcoded in the kernel, cannot be changed.</p>
+  </div>
+
+  <div class="g2">
+    <div class="card c-green">
+      <h3><span style="color:var(--green)">🟢 raw</span> — The Pre-Screener</h3>
+      <p><strong>Runs first</strong>, before connection tracking, before NAT. Available in PREROUTING and OUTPUT only.</p>
+      <p style="margin-top:8px">Primary use: <code style="color:var(--cyan)">NOTRACK</code> — skip conntrack for high-volume flows. Critical for DNS servers, game servers, streaming. Without NOTRACK, conntrack table fills up and new connections are silently dropped.</p>
+      <div class="cb" style="margin-top:10px">
+        <div class="cb-hd"><span class="cb-lbl">raw table examples</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+        <pre><span class="c"># Skip conntrack for DNS (saves memory)</span>
+<span class="k">iptables -t raw -A PREROUTING -p udp --dport 53 -j NOTRACK</span>
+<span class="k">iptables -t raw -A OUTPUT -p udp --sport 53 -j NOTRACK</span>
+
+<span class="c"># Early drop before conntrack wastes resources</span>
+<span class="k">iptables -t raw -A PREROUTING -s 1.2.3.4 -j DROP</span>
+
+<span class="c"># Log in raw state (before any modification)</span>
+<span class="k">iptables -t raw -A PREROUTING -p tcp --dport 80 -j LOG --log-prefix "RAW: "</span></pre>
+      </div>
+    </div>
+    <div class="card c-purple">
+      <h3><span style="color:var(--purple)">🟣 mangle</span> — The Packet Editor</h3>
+      <p><strong>Modifies packet header fields</strong> — does NOT block or redirect. Available in <em>all 5 chains</em>.</p>
+      <p style="margin-top:8px">Use for: MARK (tag for policy routing), TTL (change hop count), DSCP/TOS (QoS priority bits), TCPMSS (VPN MTU fix — prevents fragmentation).</p>
+      <div class="cb" style="margin-top:10px">
+        <div class="cb-hd"><span class="cb-lbl">mangle table examples</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+        <pre><span class="c"># Tag HTTP for policy routing (to use VPN interface)</span>
+<span class="k">iptables -t mangle -A PREROUTING -p tcp --dport 80 -j MARK --set-mark 1</span>
+
+<span class="c"># MSS clamp — CRITICAL for VPN tunnels (prevents stalling on large files)</span>
+<span class="k">iptables -t mangle -A FORWARD -o tun0 \
+  -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu</span>
+
+<span class="c"># Set DSCP for VoIP quality</span>
+<span class="k">iptables -t mangle -A OUTPUT -p udp --dport 5060 -j DSCP --set-dscp-class EF</span></pre>
+      </div>
+    </div>
+    <div class="card c-amber">
+      <h3><span style="color:var(--amber)">🟡 nat</span> — The Address Changer</h3>
+      <p><strong>Rewrites source or destination IPs/ports.</strong> Only runs on the <strong>first packet</strong> of each connection — conntrack handles all subsequent packets automatically.</p>
+      <p style="margin-top:8px">DNAT in PREROUTING (port forwarding) · SNAT/MASQUERADE in POSTROUTING (internet sharing) · REDIRECT (transparent proxy to self)</p>
+      <div class="cb" style="margin-top:10px">
+        <div class="cb-hd"><span class="cb-lbl">nat table examples</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+        <pre><span class="c"># Port forward :80 → internal server</span>
+<span class="k">iptables -t nat -A PREROUTING -p tcp --dport 80 -j DNAT --to 192.168.1.10:80</span>
+
+<span class="c"># Share internet (MASQUERADE — dynamic IP)</span>
+<span class="k">iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE</span>
+
+<span class="c"># Transparent proxy — redirect HTTP to local proxy</span>
+<span class="k">iptables -t nat -A PREROUTING -p tcp --dport 80 -j REDIRECT --to-port 3128</span></pre>
+      </div>
+    </div>
+    <div class="card c-blue">
+      <h3><span style="color:var(--blue)">🔵 filter</span> — The Gatekeeper</h3>
+      <p><strong>The main firewall table.</strong> ACCEPT or DROP packets here. This is the <strong>default table</strong> — <code style="color:var(--cyan)">iptables -A INPUT</code> without <code>-t</code> goes here. Available in INPUT, FORWARD, OUTPUT only.</p>
+      <p style="margin-top:8px">95% of all firewall rules live in the filter table.</p>
+      <div class="cb" style="margin-top:10px">
+        <div class="cb-hd"><span class="cb-lbl">filter table examples</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+        <pre><span class="c"># The essential stateful firewall trio:</span>
+<span class="k">iptables -A INPUT -i lo -j ACCEPT</span>
+<span class="k">iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT</span>
+<span class="k">iptables -A INPUT -m state --state INVALID -j DROP</span>
+
+<span class="c"># Then add specific services:</span>
+<span class="k">iptables -A INPUT -p tcp --dport 22 -j ACCEPT</span>
+<span class="k">iptables -A INPUT -p tcp -m multiport --dports 80,443 -j ACCEPT</span>
+
+<span class="c"># Set default deny LAST:</span>
+<span class="k">iptables -P INPUT DROP</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"><span>table × chain matrix</span></div>
+  <div class="flow-vis">
+    <h4>Which tables are available in which chains</h4>
+    <table class="tm">
+      <tr><th>Chain</th><th style="color:var(--green)">raw</th><th style="color:var(--purple)">mangle</th><th style="color:var(--amber)">nat</th><th style="color:var(--blue)">filter</th><th>Table order in chain</th></tr>
+      <tr><td class="tm-ch">PREROUTING</td><td class="tm-y">✓</td><td class="tm-y">✓</td><td class="tm-y">✓</td><td class="tm-n">—</td><td style="font-size:.62rem;color:var(--dim)">raw → mangle → nat</td></tr>
+      <tr><td class="tm-ch">INPUT</td><td class="tm-n">—</td><td class="tm-y">✓</td><td class="tm-n">—</td><td class="tm-y">✓</td><td style="font-size:.62rem;color:var(--dim)">mangle → filter</td></tr>
+      <tr><td class="tm-ch">FORWARD</td><td class="tm-n">—</td><td class="tm-y">✓</td><td class="tm-n">—</td><td class="tm-y">✓</td><td style="font-size:.62rem;color:var(--dim)">mangle → filter</td></tr>
+      <tr><td class="tm-ch">OUTPUT</td><td class="tm-y">✓</td><td class="tm-y">✓</td><td class="tm-y">✓</td><td class="tm-y">✓</td><td style="font-size:.62rem;color:var(--dim)">raw → mangle → nat → filter</td></tr>
+      <tr><td class="tm-ch">POSTROUTING</td><td class="tm-n">—</td><td class="tm-y">✓</td><td class="tm-y">✓</td><td class="tm-n">—</td><td style="font-size:.62rem;color:var(--dim)">mangle → nat</td></tr>
+    </table>
+  </div>
+  <div class="ib ib-info"><div class="il">🔑 Golden rule</div>Within any chain, table order is <strong>always: raw → mangle → nat → filter</strong>. This is hardcoded in the Linux kernel. You cannot change it. Understanding this order prevents hours of debugging "why isn't my rule matching?"</div>
+</div>
+
+<!-- ══════ IPT CHAINS ══════ -->
+<div class="sec" id="sec-ipt-chains">
+  <div class="sec-hd">
+    <div class="sec-ic" style="background:rgba(255,171,64,.1)">🔗</div>
+    <div><h2>The 5 Chains</h2><p>Checkpoints along the packet's journey — each runs at a specific moment</p></div>
+  </div>
+  <div class="g2">
+    <div class="card c-green">
+      <h3>PREROUTING — "Arrival Gate"</h3>
+      <p>The <strong>very first stop</strong> for all incoming packets — before the kernel decides where to route them. Tables: raw → mangle → nat.</p>
+      <p style="margin-top:8px">⚡ <strong>Key power</strong>: DNAT here changes the destination IP <em>before</em> the routing decision. So if you DNAT to another host's IP, routing sends it to FORWARD (not INPUT).</p>
+      <p style="margin-top:8px">Use: port forwarding, transparent proxies, NOTRACK for high-speed flows.</p>
+    </div>
+    <div class="card c-blue">
+      <h3>INPUT — "Receiving Desk"</h3>
+      <p>For packets <strong>destined for this machine</strong> — a local process (nginx, sshd, your app) will receive them. Tables: mangle → filter.</p>
+      <p style="margin-top:8px">Main firewall chain: "allow SSH port 22", "allow HTTP port 80", "drop everything else". Does NOT run for forwarded packets.</p>
+      <p style="margin-top:8px">Use: service access control, ingress firewall.</p>
+    </div>
+    <div class="card c-amber">
+      <h3>FORWARD — "Transit Lounge"</h3>
+      <p>For packets <strong>passing THROUGH this machine</strong> to a different host entirely. Tables: mangle → filter.</p>
+      <p style="margin-top:8px">⚠️ Requires <code style="color:var(--cyan)">net.ipv4.ip_forward=1</code> — without it, the kernel drops forwarded packets before they even reach this chain. All Docker, VPN, and VM traffic goes through FORWARD on the host.</p>
+      <p style="margin-top:8px"><strong>Most common mistake</strong>: DNAT rule set, FORWARD rule missing → packets silently dropped.</p>
+    </div>
+    <div class="card c-purple">
+      <h3>OUTPUT — "Departure Gate"</h3>
+      <p>For packets <strong>generated by this machine</strong> — curl, ping, your application. Tables: raw → mangle → nat → filter.</p>
+      <p style="margin-top:8px">Locally-generated packets completely <strong>skip PREROUTING</strong> — their journey starts here. You can DNAT in OUTPUT to redirect your own machine's outbound traffic to a local proxy.</p>
+    </div>
+    <div class="card c-cyan" style="grid-column:1/-1">
+      <h3>POSTROUTING — "Final Check"</h3>
+      <p>The <strong>very last chain</strong> — just before a packet leaves the machine, after the routing decision picks the outgoing interface. Tables: mangle → nat.</p>
+      <p style="margin-top:8px">Both forwarded AND locally-generated packets pass through here. SNAT and MASQUERADE live here — source IP is rewritten just before the packet hits the wire. MSS clamping for VPN tunnels also goes here (because you know the exit interface at this point).</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ IPT FLOW ══════ -->
+<div class="sec" id="sec-ipt-flow">
+  <div class="sec-hd">
+    <div class="sec-ic" style="background:rgba(24,255,255,.1)">🔀</div>
+    <div><h2>Packet Flow Paths</h2><p>The three complete journeys — click any node to understand what happens there</p></div>
+  </div>
+
+  <div class="flow-vis">
+    <h4>Path A — Inbound packet for local service (HTTP to your nginx)</h4>
+    <div class="frow">
+      <div class="fn fn-ep">NIC receives</div><div class="fa"></div>
+      <div class="fn fn-r" title="raw PREROUTING: first checkpoint, conntrack decision, NOTRACK?">raw PREROUTING</div><div class="fa"></div>
+      <div class="fn fn-m" title="mangle PREROUTING: modify headers, set MARK">mangle PREROUTING</div><div class="fa"></div>
+      <div class="fn fn-n" title="nat PREROUTING: DNAT / port forwarding — changes destination IP">nat PREROUTING</div>
+      <div class="fl fl-a">← DNAT here</div><div class="fa"></div>
+      <div class="fn fn-rt" title="Routing Decision: kernel checks routing table, destination = this host → INPUT">Routing Decision</div>
+      <div class="fl fl-g">dest=this host</div><div class="fa"></div>
+      <div class="fn fn-m" title="mangle INPUT: last chance to modify before delivery">mangle INPUT</div><div class="fa"></div>
+      <div class="fn fn-f" title="filter INPUT: main firewall check — ACCEPT, DROP, or REJECT">filter INPUT</div>
+      <div class="fl fl-r">🔥 firewall</div><div class="fa"></div>
+      <div class="fn fn-lc">Local App</div>
+    </div>
+  </div>
+
+  <div class="flow-vis">
+    <h4>Path B — Packet forwarded through this machine (acting as router/gateway)</h4>
+    <div class="frow">
+      <div class="fn fn-ep">NIC receives</div><div class="fa"></div>
+      <div class="fn fn-n" title="nat PREROUTING: DNAT to change destination if needed">nat PREROUTING</div>
+      <div class="fl fl-a">DNAT?</div><div class="fa"></div>
+      <div class="fn fn-rt" title="Routing Decision: destination = other host → FORWARD chain">Routing Decision</div>
+      <div class="fl" style="color:var(--cyan)">dest=other</div><div class="fa"></div>
+      <div class="fn fn-m">mangle FORWARD</div><div class="fa"></div>
+      <div class="fn fn-f" title="filter FORWARD: decide whether to allow or block transit traffic">filter FORWARD</div>
+      <div class="fl fl-r">🔥 firewall</div><div class="fa"></div>
+      <div class="fn fn-m">mangle POST</div><div class="fa"></div>
+      <div class="fn fn-n" title="nat POSTROUTING: MASQUERADE or SNAT — rewrite source IP just before leaving">nat POSTROUTING</div>
+      <div class="fl fl-a">← MASQ</div><div class="fa"></div>
+      <div class="fn fn-ep">NIC sends</div>
+    </div>
+    <div class="ib ib-warn" style="margin-top:12px">
+      <div class="il">⚠️ requires ip_forward=1</div>
+      Without <code>echo 1 &gt; /proc/sys/net/ipv4/ip_forward</code>, the kernel drops forwarded packets <em>before</em> iptables sees the FORWARD chain. This is the #1 reason "forwarding doesn't work."
+    </div>
+  </div>
+
+  <div class="flow-vis">
+    <h4>Path C — Locally generated packet (curl, ping, your application)</h4>
+    <div class="frow">
+      <div class="fn fn-lc">Local App</div>
+      <div class="fl fl-g">sends packet</div><div class="fa"></div>
+      <div class="fn fn-r" title="raw OUTPUT: NOTRACK option for local generated traffic">raw OUTPUT</div><div class="fa"></div>
+      <div class="fn fn-m" title="mangle OUTPUT: mark or modify outbound packets">mangle OUTPUT</div><div class="fa"></div>
+      <div class="fn fn-n" title="nat OUTPUT: DNAT for local traffic (transparent proxy for own traffic)">nat OUTPUT</div>
+      <div class="fl fl-a">DNAT local</div><div class="fa"></div>
+      <div class="fn fn-f" title="filter OUTPUT: outbound firewall check">filter OUTPUT</div><div class="fa"></div>
+      <div class="fn fn-rt" title="Routing Decision: pick outgoing interface">Routing Decision</div><div class="fa"></div>
+      <div class="fn fn-n" title="nat POSTROUTING: MASQUERADE or SNAT just before packet leaves">nat POSTROUTING</div>
+      <div class="fl fl-a">MASQ</div><div class="fa"></div>
+      <div class="fn fn-ep">NIC sends</div>
+    </div>
+  </div>
+
+  <div class="ib ib-tip">
+    <div class="il">✅ The critical interaction: DNAT changes routing</div>
+    When DNAT in PREROUTING rewrites the destination IP, the routing decision runs on the <strong>new IP</strong>. If the new IP belongs to another host on your LAN — routing sends the packet to <strong>FORWARD, not INPUT</strong>. This is why every DNAT port-forward rule must be paired with a FORWARD ACCEPT rule.
+  </div>
+</div>
+
+<!-- ══════ NAT DEEP DIVE ══════ -->
+<div class="sec" id="sec-ipt-nat">
+  <div class="sec-hd">
+    <div class="sec-ic" style="background:rgba(255,171,64,.1)">🔄</div>
+    <div><h2>NAT Deep Dive</h2><p>DNAT, SNAT, MASQUERADE, REDIRECT — how address translation works</p></div>
+  </div>
+  <div class="g2">
+    <div class="card c-amber">
+      <h3>🎯 DNAT — Change Destination</h3>
+      <p>Rewrites where the packet is going. Used in <strong>PREROUTING</strong> (for incoming traffic) or <strong>OUTPUT</strong> (for your own traffic). Classic use: port forwarding.</p>
+      <p style="margin-top:8px">After DNAT, routing uses the <em>new</em> destination. If it's another host → FORWARD chain is used. <strong style="color:var(--red)">Always add a FORWARD rule alongside DNAT!</strong></p>
+      <div class="cb" style="margin-top:10px">
+        <div class="cb-hd"><span class="cb-lbl">DNAT examples</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+        <pre><span class="c"># External :80 → internal server 192.168.1.10</span>
+<span class="k">iptables -t nat -A PREROUTING \
+  -p tcp --dport 80 \
+  -j DNAT --to-destination 192.168.1.10:80</span>
+
+<span class="c"># !! MUST also add FORWARD rule:</span>
+<span class="k">iptables -A FORWARD -p tcp \
+  -d 192.168.1.10 --dport 80 -j ACCEPT</span>
+
+<span class="c"># Port forward with port change: :8080 → internal :80</span>
+<span class="k">iptables -t nat -A PREROUTING \
+  -p tcp --dport 8080 \
+  -j DNAT --to-destination 192.168.1.10:80</span>
+
+<span class="c"># Transparent proxy (REDIRECT = DNAT to self)</span>
+<span class="k">iptables -t nat -A PREROUTING -p tcp --dport 80 \
+  -j REDIRECT --to-port 3128</span></pre>
+      </div>
+    </div>
+    <div class="card c-amber">
+      <h3>📤 SNAT / MASQUERADE — Change Source</h3>
+      <p>Rewrites where the packet appears to come from. Used in <strong>POSTROUTING</strong>. Used so private hosts can share a public IP to reach the internet.</p>
+      <p style="margin-top:8px"><strong>SNAT</strong>: specify a static source IP (slightly faster). <strong>MASQUERADE</strong>: dynamically uses the outgoing interface's current IP (handles DHCP/cloud VMs where IP changes).</p>
+      <div class="cb" style="margin-top:10px">
+        <div class="cb-hd"><span class="cb-lbl">SNAT/MASQUERADE</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+        <pre><span class="c"># MASQUERADE — dynamic IP (home router, cloud VM)</span>
+<span class="k">iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE</span>
+
+<span class="c"># SNAT — static public IP (dedicated server, faster)</span>
+<span class="k">iptables -t nat -A POSTROUTING \
+  -s 192.168.0.0/24 -o eth0 \
+  -j SNAT --to-source 203.0.113.1</span>
+
+<span class="c"># SNAT to a pool of IPs (load balance outbound NAT)</span>
+<span class="k">iptables -t nat -A POSTROUTING \
+  -j SNAT --to-source 203.0.113.1-203.0.113.5</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="ib ib-danger">
+    <div class="il">⚠️ The #1 NAT Gotcha — Port Forwarding</div>
+    <strong>The problem</strong>: You add DNAT, test it, and traffic never arrives at the backend. <strong>Why</strong>: DNAT changes destination to 192.168.1.10. Routing says "192.168.1.10 is another host → FORWARD". FORWARD default policy = DROP. Packet dies silently. <strong>The fix</strong>: <code style="color:var(--cyan)">iptables -A FORWARD -p tcp -d 192.168.1.10 --dport 80 -j ACCEPT</code>. Without this, your DNAT "works" but packets are dropped before reaching the backend.
+  </div>
+
+  <div class="divider"><span>nat + conntrack = automatic reverse translation</span></div>
+  <div class="card c-cyan">
+    <h3>🔁 How NAT + Conntrack Work Together</h3>
+    <p>NAT only runs on the <strong>first packet</strong> of each connection. After that, conntrack records the translation. When the reply arrives, conntrack automatically reverses the translation — without hitting the NAT chain again.</p>
+    <p style="margin-top:8px">Example: Internal 192.168.1.5 makes request → MASQUERADE changes source to 203.0.113.1 → internet server responds to 203.0.113.1 → conntrack knows 192.168.1.5 made that request → automatically delivers reply to 192.168.1.5. You write zero rules for this. It just works.</p>
+  </div>
+</div>
+
+<!-- ══════ CONNTRACK ══════ -->
+<div class="sec" id="sec-ipt-conntrack">
+  <div class="sec-hd">
+    <div class="sec-ic" style="background:rgba(234,128,252,.1)">🧠</div>
+    <div><h2>Connection Tracking</h2><p>The kernel's memory of active connections — what makes stateful firewalling possible</p></div>
+  </div>
+  <div class="analogy">
+    <div class="al">💡 What conntrack does</div>
+    <p>Conntrack is a kernel subsystem that keeps a table of every active connection. When you SSH into a server, conntrack writes an entry: <em>src:192.168.1.5:54123 → dst:10.0.0.1:22, state:ESTABLISHED</em>. When the reply comes back, conntrack matches it and marks it ESTABLISHED. Your firewall rule <code>-m state --state ESTABLISHED -j ACCEPT</code> then lets it through — without any per-service "allow return traffic" rule.</p>
+  </div>
+  <div class="g2">
+    <div class="card c-cyan">
+      <h3>📊 The 4 Connection States</h3>
+      <table class="tm" style="margin-top:10px">
+        <tr><th>State</th><th>Meaning</th></tr>
+        <tr><td class="tm-ch" style="color:var(--cyan)">NEW</td><td>First packet. No existing entry. TCP SYN, first UDP.</td></tr>
+        <tr><td class="tm-ch" style="color:var(--green)">ESTABLISHED</td><td>Active connection. Both sides exchanged packets.</td></tr>
+        <tr><td class="tm-ch" style="color:var(--amber)">RELATED</td><td>New connection related to existing (FTP data, ICMP errors).</td></tr>
+        <tr><td class="tm-ch" style="color:var(--red)">INVALID</td><td>Doesn't match known connection. Wrong TCP flags. Always DROP these.</td></tr>
+      </table>
+    </div>
+    <div class="card c-green">
+      <h3>🛡️ The Stateful Firewall Trio</h3>
+      <p>These three rules are the foundation of every Linux server firewall. Order matters.</p>
+      <div class="cb" style="margin-top:10px">
+        <div class="cb-hd"><span class="cb-lbl">essential rules</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+        <pre><span class="c"># 1. Always allow loopback (apps → 127.0.0.1)</span>
+<span class="k">iptables -A INPUT -i lo -j ACCEPT</span>
+
+<span class="c"># 2. Allow reply traffic — the stateful rule</span>
+<span class="k">iptables -A INPUT -m state \
+  --state ESTABLISHED,RELATED -j ACCEPT</span>
+
+<span class="c"># 3. Drop malformed packets</span>
+<span class="k">iptables -A INPUT -m state \
+  --state INVALID -j DROP</span>
+
+<span class="c"># Then add service rules, then set policy LAST:</span>
+<span class="k">iptables -P INPUT DROP</span></pre>
+      </div>
+    </div>
+  </div>
+  <div class="card c-blue">
+    <h3>📋 Conntrack Commands &amp; Limits</h3>
+    <div class="cb" style="margin-top:10px">
+      <div class="cb-hd"><span class="cb-lbl">conntrack management</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+      <pre><span class="c"># View all tracked connections</span>
+<span class="k">conntrack -L</span>
+<span class="o">tcp  6 431999 ESTABLISHED src=192.168.1.5 dst=8.8.8.8 sport=54123 dport=443 ...</span>
+
+<span class="c"># Watch new connections in real time</span>
+<span class="k">conntrack -E</span>
+
+<span class="c"># Count tracked connections</span>
+<span class="k">conntrack -C</span>
+
+<span class="c"># Check table limits (fills up on high-traffic servers)</span>
+<span class="k">cat /proc/sys/net/netfilter/nf_conntrack_count</span>   <span class="c"># current</span>
+<span class="k">cat /proc/sys/net/netfilter/nf_conntrack_max</span>     <span class="c"># max (default 65536)</span>
+
+<span class="c"># Increase limit if you see "nf_conntrack: table full" in dmesg</span>
+<span class="k">sysctl -w net.netfilter.nf_conntrack_max=500000</span>
+
+<span class="c"># For DNS/NTP/game servers: skip conntrack entirely (saves memory)</span>
+<span class="k">iptables -t raw -A PREROUTING -p udp --dport 53 -j NOTRACK</span>
+<span class="k">iptables -t raw -A OUTPUT -p udp --sport 53 -j NOTRACK</span></pre>
+    </div>
+  </div>
+</div>
+<!-- ══════ ROUTING BASICS ══════ -->
+<div class="sec" id="sec-rt-basics">
+  <div class="sec-hd">
+    <div class="sec-ic" style="background:rgba(24,255,255,.1)">🗺️</div>
+    <div><h2>Routing Fundamentals</h2><p>How the kernel decides where every packet goes</p></div>
+  </div>
+  <div class="analogy">
+    <div class="al">💡 The postal worker analogy</div>
+    <p>You are a postal worker with a stack of letters (packets). Each letter has a destination address. You have a routing table on the wall: "Letters for 192.168.1.x → tray A (eth1)", "Letters for 10.0.0.x → tray B (eth2)", "Everything else → main post office (default gateway at 192.168.1.1)".</p>
+    <p>The rule: <strong>most specific address wins</strong>. 192.168.1.0/24 beats 0.0.0.0/0. A /32 (single host) is the most specific possible. If no route matches at all — letter is returned "undeliverable" (ICMP network unreachable).</p>
+  </div>
+  <div class="g3">
+    <div class="card c-cyan">
+      <h3>❓ What Routing Answers</h3>
+      <p>One question: <em>"Given this packet's destination IP — which interface do I send it out of, and what is the next hop (gateway)?"</em></p>
+      <p style="margin-top:8px">Every packet triggers this lookup: inbound after PREROUTING (possibly modified by DNAT), outbound from local processes, and forwarded packets.</p>
+    </div>
+    <div class="card c-green">
+      <h3>📍 Longest Prefix Match</h3>
+      <p>When multiple routes match a destination, the <strong>most specific wins</strong> — the longest subnet prefix (highest number after the slash).</p>
+      <p style="margin-top:8px">10.0.1.0/<strong>24</strong> beats 10.0.0.0/<strong>8</strong> for destination 10.0.1.5. A /32 (single-host route) always wins against any broader prefix.</p>
+    </div>
+    <div class="card c-amber">
+      <h3>🚪 Default Route</h3>
+      <p>The catch-all: <code style="color:var(--cyan)">0.0.0.0/0</code>. Matches everything not matched by a more specific route. Points to your <strong>default gateway</strong> — how packets reach the internet.</p>
+      <p style="margin-top:8px">Without a default route, packets to unknown destinations fail with "Network unreachable".</p>
+    </div>
+  </div>
+
+  <div class="divider"><span>the routing table</span></div>
+  <div class="rtv">
+    <div class="rtv-hd"><span>$ ip route show</span><span style="color:var(--dim)">main routing table</span></div>
+    <div class="rtv-row" style="background:var(--panel2);font-size:.6rem;color:var(--dim);padding:6px 18px">
+      <span>DESTINATION</span><span>GATEWAY</span><span>INTERFACE</span><span>METRIC</span>
+    </div>
+    <div class="rtv-row"><span class="r-dest">192.168.1.0/24</span><span class="r-gw">direct (link)</span><span class="r-dev">eth0</span><span class="r-m">0</span></div>
+    <div class="rtv-row"><span class="r-dest">10.8.0.0/24</span><span class="r-gw">direct (link)</span><span class="r-dev">tun0</span><span class="r-m">0</span></div>
+    <div class="rtv-row"><span class="r-dest">172.17.0.0/16</span><span class="r-gw">direct (link)</span><span class="r-dev">docker0</span><span class="r-m">0</span></div>
+    <div class="rtv-row def"><span class="r-dest">0.0.0.0/0 (default)</span><span class="r-gw">192.168.1.1</span><span class="r-dev">eth0</span><span class="r-m">100</span></div>
+  </div>
+
+  <div class="cb">
+    <div class="cb-hd"><span class="cb-lbl">essential routing commands</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+    <pre><span class="c"># View routing table</span>
+<span class="k">ip route show</span>
+<span class="o">default via 192.168.1.1 dev eth0 proto dhcp metric 100</span>
+<span class="o">192.168.1.0/24 dev eth0 proto kernel scope link src 192.168.1.50</span>
+
+<span class="c"># Find which route wins for a specific destination</span>
+<span class="k">ip route get 8.8.8.8</span>
+<span class="o">8.8.8.8 via 192.168.1.1 dev eth0 src 192.168.1.50</span>
+
+<span class="c"># Add a static route</span>
+<span class="k">ip route add 10.0.5.0/24 via 192.168.1.254</span>
+
+<span class="c"># Add route via specific interface (directly connected)</span>
+<span class="k">ip route add 10.0.5.0/24 dev eth1</span>
+
+<span class="c"># Add/replace default gateway</span>
+<span class="k">ip route add default via 192.168.1.1</span>
+
+<span class="c"># Delete a route</span>
+<span class="k">ip route del 10.0.5.0/24</span>
+
+<span class="c"># Enable IP forwarding (required to act as router)</span>
+<span class="k">echo 1 > /proc/sys/net/ipv4/ip_forward</span>
+<span class="c"># Persistent (survives reboot):</span>
+<span class="k">echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf &amp;&amp; sysctl -p</span></pre>
+  </div>
+</div>
+
+<!-- ══════ ROUTING TABLE ══════ -->
+<div class="sec" id="sec-rt-table">
+  <div class="sec-hd">
+    <div class="sec-ic" style="background:rgba(0,230,118,.1)">📊</div>
+    <div><h2>Routing Table &amp; LPM</h2><p>How routes are structured and how the winner is picked</p></div>
+  </div>
+  <div class="g2">
+    <div class="card c-green">
+      <h3>🔍 Longest Prefix Match Example</h3>
+      <div class="cb" style="margin-top:10px">
+        <div class="cb-hd"><span class="cb-lbl">which route wins?</span></div>
+        <pre><span class="c">Routes in table:</span>
+<span class="o">  0.0.0.0/0     via 192.168.1.1  ← /0  catch-all</span>
+<span class="o">  10.0.0.0/8    via 10.0.0.1     ← /8</span>
+<span class="o">  10.0.1.0/24   via 10.0.1.1     ← /24</span>
+<span class="o">  10.0.1.5/32   via 10.0.1.254   ← /32 single host</span>
+
+<span class="c">For destination 10.0.1.5:</span>
+<span class="hi">  Winner: 10.0.1.5/32 → via 10.0.1.254</span>
+
+<span class="c">For destination 10.0.1.99:</span>
+<span class="hi">  Winner: 10.0.1.0/24 → via 10.0.1.1</span>
+
+<span class="c">For destination 10.5.0.1:</span>
+<span class="hi">  Winner: 10.0.0.0/8 → via 10.0.0.1</span>
+
+<span class="c"># Verify: ip route get [destination]</span>
+<span class="k">ip route get 10.0.1.5</span></pre>
+      </div>
+    </div>
+    <div class="card c-cyan">
+      <h3>🗺️ ARP — IP to MAC Address</h3>
+      <p>Routing tells you <em>which interface</em> and <em>which gateway</em>. But Ethernet needs <strong>MAC addresses</strong>. ARP resolves the gateway's IP to its MAC so the frame can actually be sent.</p>
+      <div class="cb" style="margin-top:10px">
+        <div class="cb-hd"><span class="cb-lbl">arp commands</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+        <pre><span class="c"># View ARP cache (IP → MAC mappings)</span>
+<span class="k">ip neigh show</span>
+<span class="o">192.168.1.1 dev eth0 lladdr aa:bb:cc:dd:ee:ff REACHABLE</span>
+<span class="o">192.168.1.10 dev eth0 lladdr 11:22:33:44:55:66 STALE</span>
+
+<span class="c"># ARP states:</span>
+<span class="c">#  REACHABLE  = recently confirmed valid</span>
+<span class="c">#  STALE      = will re-verify on next use</span>
+<span class="c">#  FAILED     = ARP sent, no response (host unreachable)</span>
+
+<span class="c"># Force re-resolution (useful after gateway IP changes)</span>
+<span class="k">ip neigh del 192.168.1.1 dev eth0</span>
+
+<span class="c"># Add static ARP entry (prevents ARP spoofing)</span>
+<span class="k">ip neigh add 192.168.1.1 lladdr aa:bb:cc:dd:ee:ff dev eth0 nud permanent</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"><span>routing diagnostics flowchart</span></div>
+  <div class="cb">
+    <div class="cb-hd"><span class="cb-lbl">systematic debug approach</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+    <pre><span class="c"># 1. Can you reach anything at all?</span>
+<span class="k">ping -c3 127.0.0.1</span>      <span class="c"># loopback — tests local stack</span>
+<span class="k">ping -c3 192.168.1.1</span>    <span class="c"># gateway — tests local network</span>
+<span class="k">ping -c3 8.8.8.8</span>        <span class="c"># internet — tests routing + NAT</span>
+<span class="k">ping -c3 google.com</span>     <span class="c"># DNS + internet</span>
+
+<span class="c"># 2. What route would win?</span>
+<span class="k">ip route get 8.8.8.8</span>
+<span class="k">ip route get 192.168.1.10</span>
+
+<span class="c"># 3. Is the route in the table?</span>
+<span class="k">ip route show</span>
+<span class="k">ip route show table all</span>    <span class="c"># check ALL routing tables</span>
+
+<span class="c"># 4. Is ip_forward on? (required for FORWARD chain)</span>
+<span class="k">cat /proc/sys/net/ipv4/ip_forward</span>   <span class="c"># must be 1</span>
+
+<span class="c"># 5. Is ARP working? (can you reach the gateway at layer 2?)</span>
+<span class="k">ip neigh show | grep 192.168.1.1</span>    <span class="c"># should be REACHABLE or STALE</span>
+
+<span class="c"># 6. Is iptables blocking it?</span>
+<span class="k">iptables -L -n -v</span>
+<span class="k">iptables -t nat -L -n -v</span>
+
+<span class="c"># 7. Trace the path hop by hop</span>
+<span class="k">traceroute 8.8.8.8</span>
+
+<span class="c"># 8. Add LOG to trace packet through chains</span>
+<span class="k">iptables -t raw -A PREROUTING -j LOG --log-prefix "RAW-PRE: "</span>
+<span class="k">tail -f /var/log/syslog | grep RAW-PRE</span>
+<span class="c"># CLEANUP after: iptables -t raw -D PREROUTING 1</span></pre>
+  </div>
+</div>
+
+<!-- ══════ PBR ══════ -->
+<div class="sec" id="sec-rt-pbr">
+  <div class="sec-hd">
+    <div class="sec-ic" style="background:rgba(234,128,252,.1)">⚖️</div>
+    <div><h2>Policy-Based Routing</h2><p>Route packets differently based on source, mark, or interface — not just destination</p></div>
+  </div>
+  <div class="analogy">
+    <div class="al">💡 Why standard routing isn't enough</div>
+    <p>Standard routing only looks at the <strong>destination IP</strong>. But real-world needs are more complex: "Traffic from eth1 must reply via eth1's ISP" or "HTTP/HTTPS goes via VPN, everything else uses the normal internet." Policy-Based Routing (PBR) solves this by maintaining <strong>multiple routing tables</strong> and rules for which table to consult.</p>
+  </div>
+  <div class="g2">
+    <div class="card c-purple">
+      <h3>📋 ip rule — The Policy Database</h3>
+      <p>Before the main routing table, the kernel checks <code style="color:var(--cyan)">ip rule</code> — a list of policies in priority order. Each says: "if packet matches X, use routing table Y."</p>
+      <div class="cb" style="margin-top:10px">
+        <div class="cb-hd"><span class="cb-lbl">ip rule management</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+        <pre><span class="k">ip rule show</span>
+<span class="o">0:      from all lookup local     ← highest priority</span>
+<span class="o">32766:  from all lookup main      ← normal routing table</span>
+<span class="o">32767:  from all lookup default   ← fallback (empty)</span>
+
+<span class="c"># Route by source IP (lower number = higher priority)</span>
+<span class="k">ip rule add from 192.168.2.0/24 table 100 priority 100</span>
+
+<span class="c"># Route by iptables MARK</span>
+<span class="k">ip rule add fwmark 1 table 200 priority 200</span>
+
+<span class="c"># Route by incoming interface</span>
+<span class="k">ip rule add iif eth1 table 100 priority 150</span>
+
+<span class="c"># Remove a rule</span>
+<span class="k">ip rule del from 192.168.2.0/24 table 100</span></pre>
+      </div>
+    </div>
+    <div class="card c-cyan">
+      <h3>🔀 MARK + ip rule — Most Powerful Pattern</h3>
+      <p>Tag packets with iptables MARK in the mangle table, then route tagged packets via a different routing table with ip rule. Combines firewall logic with routing decisions.</p>
+      <div class="cb" style="margin-top:10px">
+        <div class="cb-hd"><span class="cb-lbl">route HTTP via VPN, rest via eth0</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+        <pre><span class="c"># 1. Tag HTTP/HTTPS with mark=1</span>
+<span class="k">iptables -t mangle -A OUTPUT -p tcp --dport 80 -j MARK --set-mark 1</span>
+<span class="k">iptables -t mangle -A OUTPUT -p tcp --dport 443 -j MARK --set-mark 1</span>
+
+<span class="c"># 2. Create a named routing table</span>
+<span class="k">echo "50 vpn" >> /etc/iproute2/rt_tables</span>
+<span class="k">ip route add default dev tun0 table vpn</span>
+
+<span class="c"># 3. Route marked=1 packets via VPN table</span>
+<span class="k">ip rule add fwmark 1 table vpn priority 50</span>
+
+<span class="c"># Verify</span>
+<span class="k">ip route get 8.8.8.8</span>          <span class="c"># normal → eth0</span>
+<span class="k">ip route get 8.8.8.8 mark 1</span>   <span class="c"># marked → tun0</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <div class="card c-amber">
+    <h3>🌐 Dual-ISP Setup — Fixing Asymmetric Routing</h3>
+    <p>Server with two ISPs. Without PBR: connections coming in via ISP2 reply via ISP1's gateway → ISP1 drops them (wrong source IP). PBR ensures replies use the same ISP the connection arrived on.</p>
+    <div class="cb" style="margin-top:10px">
+      <div class="cb-hd"><span class="cb-lbl">dual-ISP policy routing</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+      <pre><span class="c"># eth0 = ISP1 (IP: 1.2.3.4, gateway: 1.2.3.1)</span>
+<span class="c"># eth1 = ISP2 (IP: 5.6.7.8, gateway: 5.6.7.1)</span>
+
+<span class="c"># 1. Name two routing tables</span>
+<span class="k">echo "100 isp1" >> /etc/iproute2/rt_tables</span>
+<span class="k">echo "200 isp2" >> /etc/iproute2/rt_tables</span>
+
+<span class="c"># 2. Populate ISP1 table — default via ISP1</span>
+<span class="k">ip route add default via 1.2.3.1 dev eth0 table isp1</span>
+<span class="k">ip route add 1.2.3.0/30 dev eth0 scope link table isp1</span>
+
+<span class="c"># 3. Populate ISP2 table — default via ISP2</span>
+<span class="k">ip route add default via 5.6.7.1 dev eth1 table isp2</span>
+<span class="k">ip route add 5.6.7.0/30 dev eth1 scope link table isp2</span>
+
+<span class="c"># 4. Policy: replies from ISP1 IP → use ISP1 table</span>
+<span class="k">ip rule add from 1.2.3.4 table isp1 priority 100</span>
+<span class="k">ip rule add from 5.6.7.8 table isp2 priority 200</span>
+
+<span class="c"># Verify</span>
+<span class="k">ip route get 8.8.8.8 from 1.2.3.4</span>    <span class="c"># → via ISP1</span>
+<span class="k">ip route get 8.8.8.8 from 5.6.7.8</span>    <span class="c"># → via ISP2</span></pre>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ ROUTING + IPTABLES ══════ -->
+<div class="sec" id="sec-rt-ipt">
+  <div class="sec-hd">
+    <div class="sec-ic" style="background:rgba(255,171,64,.1)">🔗</div>
+    <div><h2>Routing + iptables Together</h2><p>The complete picture — how they interact at every step</p></div>
+  </div>
+
+  <div class="flow-vis">
+    <h4>Complete kernel packet processing — routing and iptables together</h4>
+    <div class="rpath">
+      <div class="rp-nd">
+        <div class="rp-bx" style="background:rgba(90,120,152,.07);border-color:var(--border2);color:var(--dim)">NIC</div>
+        <div class="rp-lb">packet arrives on interface</div>
+      </div>
+      <div class="rp-ar"><div class="rp-ln"></div><div class="rp-ah"></div><div class="rp-nt">raw→mangle→nat</div></div>
+      <div class="rp-nd">
+        <div class="rp-bx" style="background:rgba(0,230,118,.08);border-color:var(--green);color:var(--green)">PREROUTING</div>
+        <div class="rp-lb">DNAT can change dst IP here</div>
+      </div>
+      <div class="rp-ar"><div class="rp-ln"></div><div class="rp-ah"></div><div class="rp-nt">lookup dst IP</div></div>
+      <div class="rp-nd">
+        <div class="rp-bx" style="background:rgba(24,255,255,.08);border-color:var(--cyan);color:var(--cyan)">ROUTING</div>
+        <div class="rp-lb">ip route + ip rule</div>
+      </div>
+      <div class="rp-ar"><div class="rp-ln"></div><div class="rp-ah"></div><div class="rp-nt">local or fwd?</div></div>
+      <div class="rp-nd">
+        <div class="rp-bx" style="background:rgba(68,138,255,.08);border-color:var(--blue);color:var(--blue)">INPUT / FORWARD</div>
+        <div class="rp-lb">filter: ACCEPT or DROP</div>
+      </div>
+      <div class="rp-ar"><div class="rp-ln"></div><div class="rp-ah"></div><div class="rp-nt">mangle→nat</div></div>
+      <div class="rp-nd">
+        <div class="rp-bx" style="background:rgba(255,171,64,.08);border-color:var(--amber);color:var(--amber)">POSTROUTING</div>
+        <div class="rp-lb">SNAT/MASQUERADE</div>
+      </div>
+      <div class="rp-ar"><div class="rp-ln"></div><div class="rp-ah"></div><div class="rp-nt">exits machine</div></div>
+      <div class="rp-nd">
+        <div class="rp-bx" style="background:rgba(90,120,152,.07);border-color:var(--border2);color:var(--dim)">NIC out</div>
+        <div class="rp-lb">packet leaves</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="g2">
+    <div class="card c-amber">
+      <h3>⚡ DNAT Changes the Routing Decision</h3>
+      <p>When DNAT in PREROUTING rewrites the destination IP, the routing lookup runs on the <strong>new IP</strong>.</p>
+      <p style="margin-top:8px">Original dst: <code>203.0.113.1</code> (this machine's IP) → routing → <strong>INPUT</strong><br>After DNAT: dst: <code>192.168.1.10</code> (another host) → routing → <strong>FORWARD</strong></p>
+      <p style="margin-top:8px">This is why DNAT to another host always needs a FORWARD ACCEPT rule.</p>
+    </div>
+    <div class="card c-green">
+      <h3>🏷️ MARK Bridges Both Worlds</h3>
+      <p>The most powerful pattern: iptables tags packets in mangle → ip rule reads the mark and picks a routing table → different traffic flows exit via different interfaces.</p>
+      <p style="margin-top:8px">VoIP tagged MARK=1 → routed via low-latency ISP table. HTTP tagged MARK=2 → routed via VPN. Everything else → normal default route.</p>
+    </div>
+  </div>
+
+  <div class="ib ib-info">
+    <div class="il">🔑 The 5 key relationships</div>
+    <strong>1.</strong> Routing decides the path — iptables rules only fire if the packet reaches that chain. &nbsp;<strong>2.</strong> DNAT changes routing — DNAT in PREROUTING can redirect to FORWARD instead of INPUT. &nbsp;<strong>3.</strong> conntrack enables stateful rules — ESTABLISHED matches rely on conntrack entries. &nbsp;<strong>4.</strong> MARK bridges iptables and routing — tag in mangle, route by tag with ip rule. &nbsp;<strong>5.</strong> ip_forward enables FORWARD — without it, forwarded packets die before iptables sees them.
+  </div>
+</div>
+<!-- ══════ LAB SETUP ══════ -->
+<div class="sec" id="sec-proj-setup">
+  <div class="sec-hd">
+    <div class="sec-ic" style="background:rgba(0,230,118,.1)">⚗️</div>
+    <div><h2>Lab Setup</h2><p>Get your practice environment ready before starting the projects</p></div>
+  </div>
+  <div class="g3">
+    <div class="card c-green">
+      <h3>Option A — Local VM</h3>
+      <p><strong>Recommended.</strong> Ubuntu 22.04 or Debian 12 in VirtualBox/VMware/UTM. Full root, safe sandbox. Add a second VM (same host-only network) for two-machine tests.</p>
+      <div class="cb" style="margin-top:10px"><div class="cb-hd"><span class="cb-lbl">install tools</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+        <pre><span class="k">sudo apt update &amp;&amp; sudo apt install -y \
+  iptables conntrack \
+  nmap netcat-openbsd \
+  tcpdump nginx curl</span>
+
+<span class="c"># Verify clean state</span>
+<span class="k">sudo iptables -L -n -v</span>
+<span class="c"># Should show empty chains, ACCEPT policies</span></pre>
+      </div>
+    </div>
+    <div class="card c-cyan">
+      <h3>Option B — Cloud VMs</h3>
+      <p>Oracle Cloud free tier (2 VMs, free forever) or GCP/AWS free trial. Two VMs in the same VPC subnet gives real network topology for FORWARD/routing tests.</p>
+      <div class="cb" style="margin-top:10px"><div class="cb-hd"><span class="cb-lbl">on both VMs</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+        <pre><span class="k">sudo apt update &amp;&amp; sudo apt install -y \
+  iptables conntrack \
+  netcat-openbsd tcpdump</span>
+
+<span class="c"># Note your interface name</span>
+<span class="k">ip link show</span>
+<span class="c"># May be: eth0, ens3, enp0s3, etc.</span></pre>
+      </div>
+    </div>
+    <div class="card c-amber">
+      <h3>Option C — Docker</h3>
+      <p>Quick start if you have Docker. Create containers on a custom bridge to test NAT and forwarding rules on a single machine.</p>
+      <div class="cb" style="margin-top:10px"><div class="cb-hd"><span class="cb-lbl">docker setup</span><button class="copy-btn" onclick="copyBlock(this)">copy</button></div>
+        <pre><span class="k">docker network create \
+  --subnet=172.20.0.0/24 testnet</span>
+
+<span class="k">docker run -d --name server \
+  --network testnet \
+  --ip 172.20.0.10 nginx</span>
+
+<span class="c"># See Docker's own iptables rules</span>
+<span class="k">sudo iptables -t nat -L -n -v</span></pre>
+      </div>
+    </div>
+  </div>
+  <div class="ib ib-danger">
+    <div class="il">⚠️ Safety rules — read before every lab</div>
+    <strong>Never run on a production server.</strong> A wrong DROP rule locks you out immediately. Before touching INPUT rules, always run: <code style="color:var(--cyan)">(sleep 60 &amp;&amp; sudo iptables -F &amp;&amp; sudo iptables -P INPUT ACCEPT) &amp;</code> — this auto-restores in 60 seconds. Start every lab with: <code style="color:var(--cyan)">sudo iptables -F &amp;&amp; sudo iptables -t nat -F &amp;&amp; sudo iptables -t mangle -F &amp;&amp; sudo iptables -P INPUT ACCEPT</code>
+  </div>
+  <div class="tracker" id="main-tracker">
+    <span class="tr-lbl">Projects complete:</span>
+    <div class="tr-dot" id="td-1" title="P1: Stateful Firewall"></div>
+    <div class="tr-dot" id="td-2" title="P2: NAT Gateway"></div>
+    <div class="tr-dot" id="td-3" title="P3: Port Forwarding"></div>
+    <div class="tr-dot" id="td-4" title="P4: Rate Limiting"></div>
+    <div class="tr-dot" id="td-5" title="P5: Dual-ISP Routing"></div>
+    <div class="tr-dot" id="td-6" title="P6: VPN Gateway"></div>
+    <span class="tr-score" id="tr-score">0 / 6</span>
+  </div>
+</div>
+
+<!-- ══════ PROJECT 1 ══════ -->
+<div class="sec" id="sec-proj-1">
+  <div class="sec-hd"><div class="sec-ic" style="background:rgba(0,230,118,.1)">🛡️</div>
+    <div><h2>Project 1: Stateful Firewall</h2><p>Build a production-grade default-deny firewall from scratch</p></div>
+  </div>
+  <div class="proj-card">
+    <div class="proj-hd">
+      <div class="ph-left">
+        <div class="ph-num">Project 01 of 06</div>
+        <div class="ph-title">Production Stateful Firewall</div>
+        <div class="ph-desc">Configure a default-deny INPUT firewall with SSH, HTTP, HTTPS, and stateful connection tracking. Learn the exact rule ordering that keeps your SSH session alive while hardening the server. This setup runs on every production Linux server.</div>
+        <div class="ph-tags"><span class="ht t-easy">Beginner</span><span class="ht t-neutral">~15 min</span><span class="ht t-neutral">filter table · INPUT chain</span></div>
+      </div>
+      <button class="done-btn" onclick="markDone(1,this)">Mark Complete ✓</button>
+    </div>
+    <div class="proj-body">
+      <div class="pb-col">
+        <h4>Steps — run in order</h4>
+        <div class="steps">
+          <div class="step"><div class="st-n">1</div><div class="st-body">
+            <p>Clean start — flush rules, reset policies to ACCEPT (safe starting point)</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -F && sudo iptables -P INPUT ACCEPT</code>
+            <span class="cmd-note"># Never set DROP policy before adding ESTABLISHED rule</span>
+          </div></div>
+          <div class="step"><div class="st-n">2</div><div class="st-body">
+            <p>Safety net — if you break SSH, rules auto-restore in 60s</p>
+            <code class="cmd-line" onclick="copyCmd(this)">(sleep 60 && sudo iptables -F && sudo iptables -P INPUT ACCEPT) &</code>
+          </div></div>
+          <div class="step"><div class="st-n">3</div><div class="st-body">
+            <p>Allow loopback — apps communicate with each other via 127.0.0.1</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A INPUT -i lo -j ACCEPT</code>
+          </div></div>
+          <div class="step"><div class="st-n">4</div><div class="st-body">
+            <p>Allow established connections — the stateful rule that lets replies through</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT</code>
+          </div></div>
+          <div class="step"><div class="st-n">5</div><div class="st-body">
+            <p>Drop invalid packets — broken/spoofed packets with wrong TCP flags</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A INPUT -m state --state INVALID -j DROP</code>
+          </div></div>
+          <div class="step"><div class="st-n">6</div><div class="st-body">
+            <p>Allow SSH (always add before setting DROP policy!)</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT</code>
+          </div></div>
+          <div class="step"><div class="st-n">7</div><div class="st-body">
+            <p>Allow HTTP and HTTPS using multiport match</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A INPUT -p tcp -m multiport --dports 80,443 -j ACCEPT</code>
+          </div></div>
+          <div class="step"><div class="st-n">8</div><div class="st-body">
+            <p>Allow ICMP (ping)</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A INPUT -p icmp -j ACCEPT</code>
+          </div></div>
+          <div class="step"><div class="st-n">9</div><div class="st-body">
+            <p>Set default DROP — now all unmatched traffic is blocked</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -P INPUT DROP</code>
+            <span class="cmd-note"># Do this LAST — your current SSH session should still work</span>
+          </div></div>
+        </div>
+      </div>
+      <div class="pb-col">
+        <h4>Verify it works</h4>
+        <div class="vfy-block">
+          <div class="vfy-lbl">✅ Run these checks</div>
+          <code class="vfy-cmd" onclick="copyCmd(this)">sudo iptables -L INPUT -n -v --line-numbers</code>
+          <code class="vfy-cmd" onclick="copyCmd(this)">ping -c2 127.0.0.1</code>
+          <code class="vfy-cmd" onclick="copyCmd(this)">curl -s --max-time 3 http://localhost | head -3</code>
+          <code class="vfy-cmd" onclick="copyCmd(this)">sudo iptables -Z && ping -c1 8.8.8.8 && sudo iptables -L INPUT -v</code>
+        </div>
+        <div style="margin-top:14px"><h4>Cleanup</h4>
+          <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -F && sudo iptables -P INPUT ACCEPT</code>
+        </div>
+        <div style="margin-top:14px"><h4>What you learn</h4>
+          <div class="learn-items">
+            <div class="li-item">Rule order is critical — ESTABLISHED before DROP policy, loopback before DROP, specific ACCEPTs before DROP</div>
+            <div class="li-item">The ESTABLISHED rule is what makes the firewall "stateful" — allows replies without per-service return rules</div>
+            <div class="li-item">Default DROP policy is set LAST to avoid cutting off your SSH session during setup</div>
+            <div class="li-item">Zero counters (-Z), send test traffic, check which counter incremented — tells you exactly which rule matched</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ PROJECT 2 ══════ -->
+<div class="sec" id="sec-proj-2">
+  <div class="sec-hd"><div class="sec-ic" style="background:rgba(255,171,64,.1)">🌐</div>
+    <div><h2>Project 2: NAT Gateway</h2><p>Turn this machine into an internet gateway for your LAN</p></div>
+  </div>
+  <div class="proj-card">
+    <div class="proj-hd">
+      <div class="ph-left">
+        <div class="ph-num">Project 02 of 06</div>
+        <div class="ph-title">Linux NAT Internet Gateway</div>
+        <div class="ph-desc">Configure MASQUERADE so hosts on your LAN can share this machine's internet connection. Enable ip_forward, set up FORWARD rules, add MASQUERADE. This is exactly how home routers, cloud NAT gateways, and Docker networking work.</div>
+        <div class="ph-tags"><span class="ht t-easy">Beginner</span><span class="ht t-neutral">~20 min</span><span class="ht t-neutral">nat table · FORWARD + POSTROUTING</span></div>
+      </div>
+      <button class="done-btn" onclick="markDone(2,this)">Mark Complete ✓</button>
+    </div>
+    <div class="proj-body">
+      <div class="pb-col">
+        <h4>Steps</h4>
+        <div class="steps">
+          <div class="step"><div class="st-n">1</div><div class="st-body">
+            <p>Enable IP forwarding — without this, kernel drops forwarded packets before iptables</p>
+            <code class="cmd-line" onclick="copyCmd(this)">echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward</code>
+            <code class="cmd-line" onclick="copyCmd(this)">cat /proc/sys/net/ipv4/ip_forward</code>
+            <span class="cmd-note"># Must output: 1</span>
+          </div></div>
+          <div class="step"><div class="st-n">2</div><div class="st-body">
+            <p>Find your WAN interface (connected to internet)</p>
+            <code class="cmd-line" onclick="copyCmd(this)">ip route show | grep default</code>
+            <span class="cmd-note"># Note interface after "dev" — eth0, ens3, etc.</span>
+          </div></div>
+          <div class="step"><div class="st-n">3</div><div class="st-body">
+            <p>Add MASQUERADE — rewrites source IP of outbound packets to this machine's public IP</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE</code>
+            <span class="cmd-note"># Replace eth0 with your WAN interface</span>
+          </div></div>
+          <div class="step"><div class="st-n">4</div><div class="st-body">
+            <p>Allow forwarding from LAN to WAN (replace eth1 with your LAN interface)</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A FORWARD -i eth1 -o eth0 -j ACCEPT</code>
+          </div></div>
+          <div class="step"><div class="st-n">5</div><div class="st-body">
+            <p>Allow established return traffic (internet replies back to LAN hosts)</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT</code>
+          </div></div>
+          <div class="step"><div class="st-n">6</div><div class="st-body">
+            <p>Make ip_forward persistent across reboots</p>
+            <code class="cmd-line" onclick="copyCmd(this)">echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf && sudo sysctl -p</code>
+          </div></div>
+        </div>
+      </div>
+      <div class="pb-col">
+        <h4>Verify it works</h4>
+        <div class="vfy-block">
+          <div class="vfy-lbl">✅ On the gateway machine</div>
+          <code class="vfy-cmd" onclick="copyCmd(this)">sudo iptables -t nat -L POSTROUTING -n -v</code>
+          <code class="vfy-cmd" onclick="copyCmd(this)">sudo iptables -L FORWARD -n -v</code>
+          <code class="vfy-cmd" onclick="copyCmd(this)">cat /proc/sys/net/ipv4/ip_forward</code>
+        </div>
+        <div class="vfy-block" style="margin-top:8px">
+          <div class="vfy-lbl">✅ On a LAN host (set gateway to this machine's IP)</div>
+          <code class="vfy-cmd" onclick="copyCmd(this)">curl ifconfig.me</code>
+          <span style="font-family:var(--mono);font-size:.65rem;color:var(--dim);display:block;margin-top:4px"># Should show this machine's public IP</span>
+        </div>
+        <div style="margin-top:14px"><h4>Cleanup</h4>
+          <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -F && sudo iptables -t nat -F && echo 0 | sudo tee /proc/sys/net/ipv4/ip_forward</code>
+        </div>
+        <div style="margin-top:14px"><h4>What you learn</h4>
+          <div class="learn-items">
+            <div class="li-item">ip_forward MUST be 1 — it's a kernel setting separate from iptables; without it FORWARD chain is never reached</div>
+            <div class="li-item">MASQUERADE rewrites source IP in POSTROUTING, after the routing decision picks the exit interface</div>
+            <div class="li-item">conntrack handles reverse translation of replies automatically — no rules needed for return traffic</div>
+            <div class="li-item">FORWARD ESTABLISHED rule is still needed — for the return journey of packets initiated from LAN</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ PROJECT 3 ══════ -->
+<div class="sec" id="sec-proj-3">
+  <div class="sec-hd"><div class="sec-ic" style="background:rgba(24,255,255,.1)">🔀</div>
+    <div><h2>Project 3: Port Forwarding</h2><p>DNAT external traffic to an internal server — and understand the gotcha</p></div>
+  </div>
+  <div class="proj-card">
+    <div class="proj-hd">
+      <div class="ph-left">
+        <div class="ph-num">Project 03 of 06</div>
+        <div class="ph-title">Port Forwarding with DNAT</div>
+        <div class="ph-desc">Forward external port 8080 to an internal nginx on port 80. See DNAT change the destination, understand why FORWARD rules are required, and verify with packet counters. This is how every load balancer, reverse proxy, and home firewall works.</div>
+        <div class="ph-tags"><span class="ht t-med">Intermediate</span><span class="ht t-neutral">~25 min</span><span class="ht t-neutral">nat + filter tables · PREROUTING + FORWARD</span></div>
+      </div>
+      <button class="done-btn" onclick="markDone(3,this)">Mark Complete ✓</button>
+    </div>
+    <div class="proj-body">
+      <div class="pb-col">
+        <h4>Steps</h4>
+        <div class="steps">
+          <div class="step"><div class="st-n">1</div><div class="st-body">
+            <p>Start nginx on port 80</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo systemctl start nginx && curl -s http://localhost | head -3</code>
+          </div></div>
+          <div class="step"><div class="st-n">2</div><div class="st-body">
+            <p>Clean start</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -F && sudo iptables -t nat -F</code>
+          </div></div>
+          <div class="step"><div class="st-n">3</div><div class="st-body">
+            <p>REDIRECT port 8080 → port 80 (DNAT to self — simplest port forward)</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -t nat -A PREROUTING -p tcp --dport 8080 -j REDIRECT --to-port 80</code>
+          </div></div>
+          <div class="step"><div class="st-n">4</div><div class="st-body">
+            <p>Test it — port 8080 should serve nginx</p>
+            <code class="cmd-line" onclick="copyCmd(this)">curl -s http://localhost:8080 | head -3</code>
+          </div></div>
+          <div class="step"><div class="st-n">5</div><div class="st-body">
+            <p>Now try DNAT to another host (the gotcha scenario)</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -t nat -A PREROUTING -p tcp --dport 9090 -j DNAT --to-destination 192.168.1.10:80</code>
+            <span class="cmd-note"># Replace 192.168.1.10 with another machine's IP</span>
+          </div></div>
+          <div class="step"><div class="st-n">6</div><div class="st-body">
+            <p>Enable forwarding and add the REQUIRED FORWARD rule</p>
+            <code class="cmd-line" onclick="copyCmd(this)">echo 1 | sudo tee /proc/sys/net/ipv4/ip_forward</code>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A FORWARD -p tcp -d 192.168.1.10 --dport 80 -j ACCEPT</code>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT</code>
+            <span class="cmd-note"># Without this FORWARD rule, packets are silently dropped!</span>
+          </div></div>
+          <div class="step"><div class="st-n">7</div><div class="st-body">
+            <p>Watch counters to confirm DNAT is firing</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -t nat -Z && curl -s http://localhost:8080 > /dev/null && sudo iptables -t nat -L PREROUTING -v</code>
+          </div></div>
+        </div>
+      </div>
+      <div class="pb-col">
+        <h4>Verify &amp; Debug</h4>
+        <div class="vfy-block">
+          <div class="vfy-lbl">✅ Check DNAT is working</div>
+          <code class="vfy-cmd" onclick="copyCmd(this)">sudo iptables -t nat -L PREROUTING -n -v</code>
+          <code class="vfy-cmd" onclick="copyCmd(this)">curl -s http://localhost:8080 | head -3</code>
+          <code class="vfy-cmd" onclick="copyCmd(this)">conntrack -L | grep 8080</code>
+        </div>
+        <div class="ib ib-warn" style="margin-top:10px">
+          <div class="il">⚠️ The FORWARD Gotcha</div>
+          If DNAT to another host (not self) doesn't work: DNAT rewrites destination → routing says "go to FORWARD" → FORWARD default policy = DROP → packet dies silently. Fix: always add <code>iptables -A FORWARD -d [backend] -p tcp --dport [port] -j ACCEPT</code>.
+        </div>
+        <div style="margin-top:14px"><h4>Cleanup</h4>
+          <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -F && sudo iptables -t nat -F</code>
+        </div>
+        <div style="margin-top:14px"><h4>What you learn</h4>
+          <div class="learn-items">
+            <div class="li-item">REDIRECT is the simplest DNAT (change destination to self) — no FORWARD rule needed</div>
+            <div class="li-item">DNAT to another host changes the routing decision — packet goes to FORWARD, not INPUT</div>
+            <div class="li-item">Zero NAT counters and test — counter on PREROUTING rule confirms DNAT is firing</div>
+            <div class="li-item">conntrack -L shows the translated connection entry with both original and reply tuples</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ PROJECT 4 ══════ -->
+<div class="sec" id="sec-proj-4">
+  <div class="sec-hd"><div class="sec-ic" style="background:rgba(255,82,82,.1)">🚦</div>
+    <div><h2>Project 4: Rate Limiting</h2><p>Protect SSH from brute force and services from floods</p></div>
+  </div>
+  <div class="proj-card">
+    <div class="proj-hd">
+      <div class="ph-left">
+        <div class="ph-num">Project 04 of 06</div>
+        <div class="ph-title">SSH Brute Force Protection &amp; Rate Limiting</div>
+        <div class="ph-desc">Use the `recent` module to limit SSH to 3 new connections per minute per IP. Add ICMP flood protection with the limit module. Log blocked attempts. This is the standard approach to harden any public-facing SSH server.</div>
+        <div class="ph-tags"><span class="ht t-med">Intermediate</span><span class="ht t-neutral">~20 min</span><span class="ht t-neutral">filter table · recent + limit modules</span></div>
+      </div>
+      <button class="done-btn" onclick="markDone(4,this)">Mark Complete ✓</button>
+    </div>
+    <div class="proj-body">
+      <div class="pb-col">
+        <h4>Steps</h4>
+        <div class="steps">
+          <div class="step"><div class="st-n">1</div><div class="st-body">
+            <p>Clean start + safety net</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -F && sudo iptables -P INPUT ACCEPT</code>
+            <code class="cmd-line" onclick="copyCmd(this)">(sleep 90 && sudo iptables -F && sudo iptables -P INPUT ACCEPT) &</code>
+          </div></div>
+          <div class="step"><div class="st-n">2</div><div class="st-body">
+            <p>Allow loopback and established connections</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A INPUT -i lo -j ACCEPT</code>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT</code>
+          </div></div>
+          <div class="step"><div class="st-n">3</div><div class="st-body">
+            <p>Track SSH connection attempts per IP using the recent module</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A INPUT -p tcp --dport 22 -m state --state NEW -m recent --set --name SSH_GUARD</code>
+          </div></div>
+          <div class="step"><div class="st-n">4</div><div class="st-body">
+            <p>Log IPs that exceed 4 connections in 60 seconds</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A INPUT -p tcp --dport 22 -m state --state NEW -m recent --update --seconds 60 --hitcount 4 --name SSH_GUARD -j LOG --log-prefix "SSH-RATELIMIT: "</code>
+          </div></div>
+          <div class="step"><div class="st-n">5</div><div class="st-body">
+            <p>Block IPs that exceed the rate limit</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A INPUT -p tcp --dport 22 -m state --state NEW -m recent --update --seconds 60 --hitcount 4 --name SSH_GUARD -j DROP</code>
+          </div></div>
+          <div class="step"><div class="st-n">6</div><div class="st-body">
+            <p>Allow SSH for IPs under the limit</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT</code>
+          </div></div>
+          <div class="step"><div class="st-n">7</div><div class="st-body">
+            <p>Rate limit ICMP to prevent ping floods (5 per second, burst of 10)</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A INPUT -p icmp -m limit --limit 5/sec --limit-burst 10 -j ACCEPT</code>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A INPUT -p icmp -j DROP</code>
+          </div></div>
+          <div class="step"><div class="st-n">8</div><div class="st-body">
+            <p>Set default DROP</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -P INPUT DROP</code>
+          </div></div>
+        </div>
+      </div>
+      <div class="pb-col">
+        <h4>Verify &amp; Test</h4>
+        <div class="vfy-block">
+          <div class="vfy-lbl">✅ Test rate limiting (run SSH 5 times fast)</div>
+          <code class="vfy-cmd" onclick="copyCmd(this)">for i in 1 2 3 4 5; do nc -zv -w1 localhost 22 2>&1; done</code>
+          <code class="vfy-cmd" onclick="copyCmd(this)">cat /proc/net/xt_recent/SSH_GUARD</code>
+          <code class="vfy-cmd" onclick="copyCmd(this)">sudo dmesg | grep SSH-RATELIMIT</code>
+        </div>
+        <div class="ib ib-tip" style="margin-top:10px">
+          <div class="il">✅ How it works</div>
+          The <code>recent</code> module maintains a per-IP hit list in kernel memory. Rule 3 adds IP to the list on each new SYN. Rules 4+5 check if the same IP has hit more than 4 times in 60 seconds — if so, log and drop. Under the limit → falls through to rule 6 (ACCEPT).
+        </div>
+        <div style="margin-top:14px"><h4>Cleanup</h4>
+          <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -F && sudo iptables -P INPUT ACCEPT</code>
+        </div>
+        <div style="margin-top:14px"><h4>What you learn</h4>
+          <div class="learn-items">
+            <div class="li-item">The recent module tracks per-IP hit counts — stateful and very efficient (no conntrack entries for dropped packets)</div>
+            <div class="li-item">LOG before DROP lets you see exactly what you're blocking in syslog</div>
+            <div class="li-item">The limit module handles burst allowance elegantly — 10 pings burst, then max 5/sec sustained</div>
+            <div class="li-item">Rules 3, 4, 5, 6 form a chain: track → if over limit LOG → if over limit DROP → otherwise ACCEPT</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ PROJECT 5 ══════ -->
+<div class="sec" id="sec-proj-5">
+  <div class="sec-hd"><div class="sec-ic" style="background:rgba(234,128,252,.1)">🌍</div>
+    <div><h2>Project 5: Dual-ISP Routing</h2><p>Policy-based routing to fix asymmetric routing with two ISPs</p></div>
+  </div>
+  <div class="proj-card">
+    <div class="proj-hd">
+      <div class="ph-left">
+        <div class="ph-num">Project 05 of 06</div>
+        <div class="ph-title">Dual-ISP Policy-Based Routing</div>
+        <div class="ph-desc">Configure two routing tables (one per ISP) and ip rules to ensure traffic arriving via ISP2 replies via ISP2 — not through ISP1 (which would cause asymmetric routing and dropped packets). Use iptables MARK to route specific traffic types via specific ISPs.</div>
+        <div class="ph-tags"><span class="ht t-hard">Advanced</span><span class="ht t-neutral">~30 min</span><span class="ht t-neutral">ip rule · ip route · mangle MARK</span></div>
+      </div>
+      <button class="done-btn" onclick="markDone(5,this)">Mark Complete ✓</button>
+    </div>
+    <div class="proj-body">
+      <div class="pb-col">
+        <h4>Steps</h4>
+        <div class="steps">
+          <div class="step"><div class="st-n">1</div><div class="st-body">
+            <p>View current routing and rule state</p>
+            <code class="cmd-line" onclick="copyCmd(this)">ip route show && ip rule show</code>
+          </div></div>
+          <div class="step"><div class="st-n">2</div><div class="st-body">
+            <p>Name two routing tables (add to rt_tables if not exists)</p>
+            <code class="cmd-line" onclick="copyCmd(this)">echo "100 isp1" | sudo tee -a /etc/iproute2/rt_tables</code>
+            <code class="cmd-line" onclick="copyCmd(this)">echo "200 isp2" | sudo tee -a /etc/iproute2/rt_tables</code>
+          </div></div>
+          <div class="step"><div class="st-n">3</div><div class="st-body">
+            <p>Populate ISP1 table (replace IPs with your actual values)</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo ip route add default via 1.2.3.1 dev eth0 table isp1</code>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo ip route add 1.2.3.0/30 dev eth0 scope link table isp1</code>
+          </div></div>
+          <div class="step"><div class="st-n">4</div><div class="st-body">
+            <p>Populate ISP2 table</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo ip route add default via 5.6.7.1 dev eth1 table isp2</code>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo ip route add 5.6.7.0/30 dev eth1 scope link table isp2</code>
+          </div></div>
+          <div class="step"><div class="st-n">5</div><div class="st-body">
+            <p>Add policy rules — traffic FROM ISP1 IP uses ISP1 table, FROM ISP2 IP uses ISP2 table</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo ip rule add from 1.2.3.4 table isp1 priority 100</code>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo ip rule add from 5.6.7.8 table isp2 priority 200</code>
+          </div></div>
+          <div class="step"><div class="st-n">6</div><div class="st-body">
+            <p>BONUS: Route HTTP via ISP1, HTTPS via ISP2 using MARK</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -t mangle -A OUTPUT -p tcp --dport 80 -j MARK --set-mark 1</code>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -t mangle -A OUTPUT -p tcp --dport 443 -j MARK --set-mark 2</code>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo ip rule add fwmark 1 table isp1 priority 50</code>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo ip rule add fwmark 2 table isp2 priority 60</code>
+          </div></div>
+        </div>
+      </div>
+      <div class="pb-col">
+        <h4>Verify</h4>
+        <div class="vfy-block">
+          <div class="vfy-lbl">✅ Check routing tables and rules</div>
+          <code class="vfy-cmd" onclick="copyCmd(this)">ip rule show</code>
+          <code class="vfy-cmd" onclick="copyCmd(this)">ip route show table isp1</code>
+          <code class="vfy-cmd" onclick="copyCmd(this)">ip route show table isp2</code>
+          <code class="vfy-cmd" onclick="copyCmd(this)">ip route get 8.8.8.8 from 1.2.3.4</code>
+          <code class="vfy-cmd" onclick="copyCmd(this)">ip route get 8.8.8.8 from 5.6.7.8</code>
+          <code class="vfy-cmd" onclick="copyCmd(this)">ip route get 8.8.8.8 mark 1</code>
+        </div>
+        <div style="margin-top:14px"><h4>Cleanup</h4>
+          <code class="cmd-line" onclick="copyCmd(this)">sudo ip rule del from 1.2.3.4 table isp1; sudo ip rule del from 5.6.7.8 table isp2</code>
+          <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -t mangle -F</code>
+        </div>
+        <div style="margin-top:14px"><h4>What you learn</h4>
+          <div class="learn-items">
+            <div class="li-item">Policy routing uses ip rule to select which routing table to consult — runs before the main table</div>
+            <div class="li-item">Asymmetric routing (in via ISP2, out via ISP1) causes packets to be dropped by ISP1 (wrong source IP)</div>
+            <div class="li-item">ip rule priority matters — lower number = higher priority, checked first</div>
+            <div class="li-item">iptables MARK + ip rule = route specific traffic types via specific paths — most powerful PBR pattern</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ PROJECT 6 ══════ -->
+<div class="sec" id="sec-proj-6">
+  <div class="sec-hd"><div class="sec-ic" style="background:rgba(68,138,255,.1)">🔐</div>
+    <div><h2>Project 6: VPN Gateway</h2><p>Configure a full VPN gateway with routing, NAT, and MSS clamping</p></div>
+  </div>
+  <div class="proj-card">
+    <div class="proj-hd">
+      <div class="ph-left">
+        <div class="ph-num">Project 06 of 06</div>
+        <div class="ph-title">WireGuard VPN Gateway</div>
+        <div class="ph-desc">Set up a complete VPN gateway: enable forwarding, allow VPN interface traffic, MASQUERADE VPN clients to the internet, add MSS clamping to prevent VPN fragmentation, and configure split-tunnel routing so specific traffic goes via VPN and the rest uses normal routing.</div>
+        <div class="ph-tags"><span class="ht t-hard">Advanced</span><span class="ht t-neutral">~35 min</span><span class="ht t-neutral">all tables · FORWARD + POSTROUTING + mangle</span></div>
+      </div>
+      <button class="done-btn" onclick="markDone(6,this)">Mark Complete ✓</button>
+    </div>
+    <div class="proj-body">
+      <div class="pb-col">
+        <h4>Steps</h4>
+        <div class="steps">
+          <div class="step"><div class="st-n">1</div><div class="st-body">
+            <p>Install WireGuard</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo apt install -y wireguard</code>
+          </div></div>
+          <div class="step"><div class="st-n">2</div><div class="st-body">
+            <p>Enable IP forwarding (persistent)</p>
+            <code class="cmd-line" onclick="copyCmd(this)">echo "net.ipv4.ip_forward=1" | sudo tee -a /etc/sysctl.conf && sudo sysctl -p</code>
+          </div></div>
+          <div class="step"><div class="st-n">3</div><div class="st-body">
+            <p>Allow traffic from VPN interface (wg0) — accept all traffic arriving via VPN tunnel</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A INPUT -i wg0 -j ACCEPT</code>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A FORWARD -i wg0 -j ACCEPT</code>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A FORWARD -o wg0 -j ACCEPT</code>
+          </div></div>
+          <div class="step"><div class="st-n">4</div><div class="st-body">
+            <p>MASQUERADE VPN clients so they appear as this server's IP to the internet</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -t nat -A POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE</code>
+            <span class="cmd-note"># 10.8.0.0/24 = VPN subnet, eth0 = WAN interface</span>
+          </div></div>
+          <div class="step"><div class="st-n">5</div><div class="st-body">
+            <p>MSS clamping — CRITICAL: prevents VPN TCP connections stalling on large file transfers</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -t mangle -A FORWARD -o wg0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu</code>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -t mangle -A FORWARD -i wg0 -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --clamp-mss-to-pmtu</code>
+          </div></div>
+          <div class="step"><div class="st-n">6</div><div class="st-body">
+            <p>Allow established return traffic</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -A FORWARD -m state --state ESTABLISHED,RELATED -j ACCEPT</code>
+          </div></div>
+          <div class="step"><div class="st-n">7</div><div class="st-body">
+            <p>Split tunnel: specific subnets via VPN, internet via normal route</p>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo ip route add 10.0.0.0/8 dev wg0</code>
+            <code class="cmd-line" onclick="copyCmd(this)">sudo ip route add 172.16.0.0/12 dev wg0</code>
+            <span class="cmd-note"># Internet traffic still uses default route (eth0)</span>
+          </div></div>
+        </div>
+      </div>
+      <div class="pb-col">
+        <h4>Verify</h4>
+        <div class="vfy-block">
+          <div class="vfy-lbl">✅ Check VPN gateway rules</div>
+          <code class="vfy-cmd" onclick="copyCmd(this)">sudo iptables -L FORWARD -n -v</code>
+          <code class="vfy-cmd" onclick="copyCmd(this)">sudo iptables -t nat -L POSTROUTING -n -v</code>
+          <code class="vfy-cmd" onclick="copyCmd(this)">sudo iptables -t mangle -L FORWARD -n -v</code>
+          <code class="vfy-cmd" onclick="copyCmd(this)">ip route show | grep wg0</code>
+        </div>
+        <div class="ib ib-tip" style="margin-top:10px">
+          <div class="il">✅ Why MSS clamping matters</div>
+          WireGuard adds ~60 bytes of overhead per packet. Standard MTU is 1500. The effective MTU through WireGuard is ~1420. Without MSS clamping, TCP negotiates max segment size assuming 1500 MTU → large packets get fragmented or silently dropped → downloads stall. MSS clamping fixes this during the TCP SYN handshake.
+        </div>
+        <div style="margin-top:14px"><h4>Cleanup</h4>
+          <code class="cmd-line" onclick="copyCmd(this)">sudo iptables -F && sudo iptables -t nat -F && sudo iptables -t mangle -F</code>
+        </div>
+        <div style="margin-top:14px"><h4>What you learn</h4>
+          <div class="learn-items">
+            <div class="li-item">VPN interface (wg0) is just another interface — routing and iptables treat it identically to eth0</div>
+            <div class="li-item">MSS clamping in mangle FORWARD prevents the #1 VPN issue: downloads stalling on large files</div>
+            <div class="li-item">Split tunnel = specific routes via wg0, default route stays on eth0. Full tunnel = default route via wg0</div>
+            <div class="li-item">All 4 tables work together: mangle (MSS clamp), nat (MASQUERADE), filter (FORWARD rules), raw (optional NOTRACK)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════ CHEAT SHEET ══════ -->
+<div class="sec" id="sec-cheat">
+  <div class="sec-hd"><div class="sec-ic" style="background:rgba(24,255,255,.1)">📄</div>
+    <div><h2>Cheat Sheet</h2><p>Every command you need, organized by task</p></div>
+  </div>
+  <div class="cs-grid">
+    <div class="cs-card"><div class="cs-hd">Viewing Rules</div><div class="cs-body">
+      <div class="cs-row"><span class="cs-cmd">iptables -L -n -v --line-numbers</span><span class="cs-desc">List all filter rules with counters</span></div>
+      <div class="cs-row"><span class="cs-cmd">iptables -t nat -L -n -v</span><span class="cs-desc">List all NAT rules</span></div>
+      <div class="cs-row"><span class="cs-cmd">iptables -S</span><span class="cs-desc">Rules in saveable format</span></div>
+      <div class="cs-row"><span class="cs-cmd">watch -n1 'iptables -L -n -v'</span><span class="cs-desc">Live counter watch</span></div>
+      <div class="cs-row"><span class="cs-cmd">iptables -Z</span><span class="cs-desc">Zero all counters</span></div>
+    </div></div>
+    <div class="cs-card"><div class="cs-hd">Adding Rules</div><div class="cs-body">
+      <div class="cs-row"><span class="cs-cmd">iptables -A INPUT -p tcp --dport 22 -j ACCEPT</span><span class="cs-desc">Append to chain</span></div>
+      <div class="cs-row"><span class="cs-cmd">iptables -I INPUT 1 ...</span><span class="cs-desc">Insert at position 1 (top)</span></div>
+      <div class="cs-row"><span class="cs-cmd">iptables -D INPUT 3</span><span class="cs-desc">Delete rule by line number</span></div>
+      <div class="cs-row"><span class="cs-cmd">iptables -P INPUT DROP</span><span class="cs-desc">Set default policy</span></div>
+      <div class="cs-row"><span class="cs-cmd">iptables -F</span><span class="cs-desc">Flush all rules</span></div>
+    </div></div>
+    <div class="cs-card"><div class="cs-hd">Match Options</div><div class="cs-body">
+      <div class="cs-row"><span class="cs-cmd">-p tcp --dport 80</span><span class="cs-desc">Protocol + destination port</span></div>
+      <div class="cs-row"><span class="cs-cmd">-s 192.168.1.0/24</span><span class="cs-desc">Source IP/subnet</span></div>
+      <div class="cs-row"><span class="cs-cmd">-i eth0 / -o eth0</span><span class="cs-desc">Incoming / outgoing interface</span></div>
+      <div class="cs-row"><span class="cs-cmd">-m state --state EST,REL</span><span class="cs-desc">Connection state match</span></div>
+      <div class="cs-row"><span class="cs-cmd">-m multiport --dports 80,443</span><span class="cs-desc">Multiple ports</span></div>
+      <div class="cs-row"><span class="cs-cmd">-m recent --update --seconds 60 --hitcount 4</span><span class="cs-desc">Rate limit per IP</span></div>
+    </div></div>
+    <div class="cs-card"><div class="cs-hd">NAT Commands</div><div class="cs-body">
+      <div class="cs-row"><span class="cs-cmd">-t nat -A PREROUTING ... -j DNAT --to IP:PORT</span><span class="cs-desc">Port forward</span></div>
+      <div class="cs-row"><span class="cs-cmd">-t nat -A POSTROUTING -o eth0 -j MASQUERADE</span><span class="cs-desc">Internet sharing</span></div>
+      <div class="cs-row"><span class="cs-cmd">-t nat -A PREROUTING ... -j REDIRECT --to-port N</span><span class="cs-desc">Transparent proxy</span></div>
+      <div class="cs-row"><span class="cs-cmd">-t nat -L -n -v</span><span class="cs-desc">View NAT rules</span></div>
+    </div></div>
+    <div class="cs-card"><div class="cs-hd">Routing Commands</div><div class="cs-body">
+      <div class="cs-row"><span class="cs-cmd">ip route show</span><span class="cs-desc">View main routing table</span></div>
+      <div class="cs-row"><span class="cs-cmd">ip route get 8.8.8.8</span><span class="cs-desc">Which route wins?</span></div>
+      <div class="cs-row"><span class="cs-cmd">ip route add 10.0.0.0/24 via 192.168.1.1</span><span class="cs-desc">Add static route</span></div>
+      <div class="cs-row"><span class="cs-cmd">ip rule show</span><span class="cs-desc">View policy rules</span></div>
+      <div class="cs-row"><span class="cs-cmd">ip rule add fwmark 1 table vpn</span><span class="cs-desc">Route by MARK</span></div>
+      <div class="cs-row"><span class="cs-cmd">ip neigh show</span><span class="cs-desc">View ARP cache</span></div>
+    </div></div>
+    <div class="cs-card"><div class="cs-hd">Debug Commands</div><div class="cs-body">
+      <div class="cs-row"><span class="cs-cmd">conntrack -L</span><span class="cs-desc">List tracked connections</span></div>
+      <div class="cs-row"><span class="cs-cmd">conntrack -E</span><span class="cs-desc">Watch connections live</span></div>
+      <div class="cs-row"><span class="cs-cmd">iptables -t raw -A PREROUTING -j TRACE</span><span class="cs-desc">Trace packet through all chains</span></div>
+      <div class="cs-row"><span class="cs-cmd">tcpdump -i eth0 -n 'port 80'</span><span class="cs-desc">Capture packets</span></div>
+      <div class="cs-row"><span class="cs-cmd">iptables-save > /etc/iptables/rules.v4</span><span class="cs-desc">Save rules</span></div>
+      <div class="cs-row"><span class="cs-cmd">iptables-restore < /etc/iptables/rules.v4</span><span class="cs-desc">Restore rules</span></div>
+    </div></div>
+  </div>
+</div>
+
+</div><!-- end main -->
+</div><!-- end shell -->
+
+<script>
+const SECTIONS=['intro','ipt-basics','ipt-tables','ipt-chains','ipt-flow','ipt-nat','ipt-conntrack','rt-basics','rt-table','rt-pbr','rt-ipt','proj-setup','proj-1','proj-2','proj-3','proj-4','proj-5','proj-6','cheat'];
+const PATHS={'intro':'overview','ipt-basics':'iptables/core-concepts','ipt-tables':'iptables/tables','ipt-chains':'iptables/chains','ipt-flow':'iptables/packet-flow','ipt-nat':'iptables/nat','ipt-conntrack':'iptables/conntrack','rt-basics':'routing/fundamentals','rt-table':'routing/routing-table','rt-pbr':'routing/policy-based','rt-ipt':'routing/iptables-interaction','proj-setup':'projects/lab-setup','proj-1':'projects/firewall','proj-2':'projects/nat-gateway','proj-3':'projects/port-forwarding','proj-4':'projects/rate-limiting','proj-5':'projects/dual-isp','proj-6':'projects/vpn-gateway','cheat':'reference/cheat-sheet'};
+let currentIdx=0;
+const done=new Set();
+
+function nav(id,el){
+  document.querySelectorAll('.sec').forEach(s=>s.classList.remove('active'));
+  const sec=document.getElementById('sec-'+id);
+  if(sec){sec.classList.add('active');window.scrollTo({top:0,behavior:'smooth'});}
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  if(el)el.classList.add('active');
+  else{
+    document.querySelectorAll('.nav-item').forEach(n=>{
+      if(n.getAttribute('onclick')&&n.getAttribute('onclick').includes("'"+id+"'"))n.classList.add('active');
+    });
+  }
+  currentIdx=SECTIONS.indexOf(id);
+  document.getElementById('tb-path').textContent=PATHS[id]||id;
+}
+
+function nextSec(){if(currentIdx<SECTIONS.length-1){const nid=SECTIONS[currentIdx+1];const navItems=document.querySelectorAll('.nav-item');let found=null;navItems.forEach(n=>{if(n.getAttribute('onclick')&&n.getAttribute('onclick').includes("'"+nid+"'"))found=n;});nav(nid,found);}}
+function prevSec(){if(currentIdx>0){const pid=SECTIONS[currentIdx-1];const navItems=document.querySelectorAll('.nav-item');let found=null;navItems.forEach(n=>{if(n.getAttribute('onclick')&&n.getAttribute('onclick').includes("'"+pid+"'"))found=n;});nav(pid,found);}}
+
+function copyBlock(btn){
+  const pre=btn.closest('.cb').querySelector('pre');
+  const text=pre.textContent.replace(/\n+/g,'\n').trim();
+  navigator.clipboard.writeText(text).then(()=>{
+    btn.textContent='copied!';btn.classList.add('copied');
+    setTimeout(()=>{btn.textContent='copy';btn.classList.remove('copied');},1800);
+  });
+}
+
+function copyCmd(el){
+  navigator.clipboard.writeText(el.textContent.trim()).then(()=>{
+    const orig=el.textContent;el.classList.add('copied');
+    setTimeout(()=>{el.classList.remove('copied');},1200);
+  });
+}
+
+function markDone(n,btn){
+  const wasDone=done.has(n);
+  if(wasDone){done.delete(n);btn.textContent='Mark Complete ✓';btn.classList.remove('done');}
+  else{done.add(n);btn.textContent='✅ Completed!';btn.classList.add('done');}
+  const dot=document.getElementById('td-'+n);
+  if(dot){if(!wasDone)dot.classList.add('done');else dot.classList.remove('done');}
+  const count=done.size;
+  const txt=document.getElementById('prog-txt');
+  const fill=document.getElementById('prog-fill');
+  const score=document.getElementById('tr-score');
+  if(txt)txt.textContent=count+' / 6 projects';
+  if(fill)fill.style.width=(count/6*100)+'%';
+  if(score)score.textContent=count+' / 6';
+}
+</script>
+</body>
+</html>
